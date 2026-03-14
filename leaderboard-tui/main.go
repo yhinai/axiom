@@ -84,7 +84,7 @@ func fetchBoard(idx int) tea.Cmd {
 		req, _ := http.NewRequest("GET", url, nil)
 		req.Header.Set("X-Popcorn-Cli-Id", cliID)
 
-		resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
+		resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
 		if err != nil {
 			return boardData{idx: idx, err: err}
 		}
@@ -115,7 +115,7 @@ func fetchAll() tea.Cmd {
 }
 
 func tickCmd() tea.Cmd {
-	return tea.Tick(5*time.Second, func(t time.Time) tea.Msg { return tickMsg(t) })
+	return tea.Tick(30*time.Second, func(t time.Time) tea.Msg { return tickMsg(t) })
 }
 
 func (m model) Init() tea.Cmd {
