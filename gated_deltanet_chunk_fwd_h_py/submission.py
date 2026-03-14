@@ -12,7 +12,7 @@ import helion.language as hl
 # tf32 dots, exp2, acc=state fusion, diff gating
 _LOG2E = 1.4426950408889634
 
-_TUNED = helion.Config(block_sizes=[], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor', 'pointer', 'tensor_descriptor', 'pointer'], l2_groupings=[1], load_eviction_policies=['first', '', '', '', ''], loop_orders=[[1, 0]], num_stages=3, num_warps=4, pid_type='flat', range_flattens=[None, True], range_multi_buffers=[None, False], range_num_stages=[0, 3], range_unroll_factors=[0, 0], range_warp_specializes=[None, None])
+_TUNED = helion.Config(block_sizes=[], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor', 'pointer', 'tensor_descriptor', 'pointer'], l2_groupings=[4], load_eviction_policies=['first', '', '', '', ''], loop_orders=[[0, 1]], num_stages=5, num_warps=4, pid_type='flat', range_flattens=[None, True], range_multi_buffers=[None, False], range_num_stages=[0, 0], range_unroll_factors=[0, 0], range_warp_specializes=[None, None])
 SHAPE_CONFIGS: dict[tuple, helion.Config] = {
     # Test shapes
     (1, 64, 2, 64, 64): _TUNED,
