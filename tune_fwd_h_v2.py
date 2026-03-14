@@ -101,13 +101,13 @@ def make_fwd_h(config):
 
 
 def make_args(shape):
-    """Create input tensors for a given shape."""
+    """Create input tensors for a given shape (float32 to match reference.py)."""
     B, T, H, K, V = shape
     return (
-        torch.randn(B, T, H, K, device="cuda", dtype=torch.bfloat16),
-        torch.randn(B, T, H, K, device="cuda", dtype=torch.bfloat16),
-        torch.randn(B, T, H, V, device="cuda", dtype=torch.bfloat16),
-        torch.randn(B, T, H, device="cuda", dtype=torch.bfloat16),
+        torch.randn(B, T, H, K, device="cuda", dtype=torch.float32) / K**0.5,
+        torch.randn(B, T, H, K, device="cuda", dtype=torch.float32),
+        torch.randn(B, T, H, V, device="cuda", dtype=torch.float32),
+        torch.randn(B, T, H, device="cuda", dtype=torch.float32),
     )
 
 
