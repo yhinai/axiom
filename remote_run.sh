@@ -33,7 +33,7 @@ for dir in $KERNEL_DIRS; do
 done
 
 # Sync eval.py, utils.py, and tuning scripts
-for f in eval.py utils.py tune_fp8.py tune_fp8_v2.py tune_fwd_h_v2.py autotune_deltanet.py autotune_pershape.py; do
+for f in eval.py utils.py tune_fp8.py tune_fp8_v2.py tune_fwd_h_v2.py tune_fwd_h_helion.py autotune_deltanet.py autotune_pershape.py; do
     if [ -f "$LOCAL_DIR/$f" ]; then
         sshpass -p "$REMOTE_PASS" scp -o StrictHostKeyChecking=no "$LOCAL_DIR/$f" "$REMOTE_HOST:$REMOTE_DIR/$f" 2>/dev/null
         echo "  Synced $f"
