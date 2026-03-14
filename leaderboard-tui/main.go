@@ -65,6 +65,19 @@ type model struct {
 	height    int
 }
 
+func formatTime(seconds float64) string {
+	switch {
+	case seconds >= 1:
+		return fmt.Sprintf("%6.2fs", seconds)
+	case seconds >= 1e-3:
+		return fmt.Sprintf("%6.2fms", seconds*1e3)
+	case seconds >= 1e-6:
+		return fmt.Sprintf("%6.2fµs", seconds*1e6)
+	default:
+		return fmt.Sprintf("%6.2fns", seconds*1e9)
+	}
+}
+
 func fetchBoard(idx int) tea.Cmd {
 	return func() tea.Msg {
 		url := fmt.Sprintf("%s/submissions/%s/%s", apiBase, leaderboards[idx], gpu)
@@ -192,7 +205,7 @@ func (m model) View() string {
 				}
 
 				rank := fmt.Sprintf("%2d", e.Rank)
-				score := fmt.Sprintf("%.3e", e.Score)
+				score := formatTime(e.Score)
 				line := fmt.Sprintf("%s  %-12s %s", rank, user, score)
 
 				lower := strings.ToLower(e.User)
