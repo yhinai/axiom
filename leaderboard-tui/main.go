@@ -15,7 +15,7 @@ import (
 
 const (
 	apiBase = "https://site--bot--dxfjds728w5v.code.run"
-	cliID   = "081e2347-26b8-426b-bde9-5ccb03833e7a"
+	cliID   = "12840e6c-2505-451c-9dc1-46f5354685ba"
 	gpu     = "B200_Nebius"
 	topN    = 10
 )
