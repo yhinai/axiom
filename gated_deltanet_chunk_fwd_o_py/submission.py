@@ -27,9 +27,12 @@ SHAPE_CONFIGS: dict[tuple, helion.Config] = {
     (4, 2048, 8, 64, 64): _TUNED,
 }
 
+# exp -> exp2 constant: exp(x) = exp2(x * LOG2E)
+_LOG2E = 1.4426950408889634
+
 
 def _make_kernel(config: helion.Config):
-    @helion.kernel(static_shapes=True, dot_precision="ieee", config=config)
+    @helion.kernel(static_shapes=True, dot_precision="tf32", config=config)
     def kernel(
         q: torch.Tensor,     # [B, T, H, K]
         k: torch.Tensor,     # [B, T, H, K]
@@ -59,9 +62,8 @@ def _make_kernel(config: helion.Config):
 
             # Local: qk = q @ k^T * exp(g_i - g_j), masked causal
             qk = hl.dot(q_chunk, k_chunk.T)
-            # Apply gating: exp(g_i - g_j) -- numerically stable since g_i - g_j <= 0 for i >= j
             g_diff = g_vals[:, None] - g_vals[None, :]
-            qk = qk * torch.exp(g_diff)
+            qk = qk * torch.exp2(g_diff * _LOG2E)
             # Causal mask
             idx = hl.arange(tile_t.block_size)
             mask = idx[:, None] >= idx[None, :]
@@ -69,8 +71,8 @@ def _make_kernel(config: helion.Config):
             # local_out = qk @ v
             local_out = hl.dot(qk.to(v.dtype), v_chunk)
 
-            # Global: (q @ h) * exp(g) -- g is negative cumsum so exp(g) <= 1
-            q_g = q_chunk * torch.exp(g_vals)[:, None]
+            # Global: (q @ h) * exp(g)
+            q_g = q_chunk * torch.exp2(g_vals[:, None] * _LOG2E)
             global_out = hl.dot(q_g, h[b_idx, c_idx, h_idx, :, :])
 
             out[b_idx, tile_t, h_idx, :] = ((global_out + local_out) * scale).to(out.dtype)
