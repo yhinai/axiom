@@ -9,8 +9,8 @@ import helion.language as hl
 
 
 # Per-shape configs: map (B, D, S, W) to optimized helion.Config objects.
-# Autotuned config from B200 (full effort, 710 configs, min=0.0205ms, with ACF booster)
-_TUNED = helion.Config(advanced_controls_file='/opt/booster_pack/causal_conv_1.acf', block_sizes=[1, 1024], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor'], l2_groupings=[8], load_eviction_policies=['first', '', 'first'], loop_orders=[[0, 2, 1]], num_stages=7, num_warps=2, pid_type='flat', range_flattens=[None, False], range_multi_buffers=[None, True], range_num_stages=[0, 0], range_unroll_factors=[0, 0], range_warp_specializes=[None, False], static_ranges=[False])
+# Autotuned config from B200 (without ACF to avoid PTXAS errors on KernelBot)
+_TUNED = helion.Config(block_sizes=[1, 1024], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor'], l2_groupings=[8], load_eviction_policies=['first', '', 'first'], loop_orders=[[0, 2, 1]], num_stages=7, num_warps=2, pid_type='flat', range_flattens=[None, False], range_multi_buffers=[None, True], range_num_stages=[0, 0], range_unroll_factors=[0, 0], range_warp_specializes=[None, False], static_ranges=[False])
 _DEFAULT = helion.Config(block_sizes=[1, 256], num_warps=4, num_stages=1)
 
 SHAPE_CONFIGS: dict[tuple, helion.Config] = {
