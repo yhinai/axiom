@@ -8,26 +8,22 @@ import helion
 import helion.language as hl
 
 
-# Per-shape configs: sweep-optimized on B200 (249 configs tested)
-_SWEEP_BEST = helion.Config(block_sizes=[8], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor', 'pointer', 'tensor_descriptor', 'pointer'], l2_groupings=[8], load_eviction_policies=['first', '', '', '', ''], loop_orders=[[1, 0]], num_stages=3, num_warps=4, pid_type='flat', range_flattens=[None, True], range_multi_buffers=[None, False], range_num_stages=[0, 0], range_unroll_factors=[0, 1], range_warp_specializes=[None, None])
-# Small shapes (BH<=2): higher warps for occupancy
-_SMALL = helion.Config(block_sizes=[8], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor', 'pointer', 'tensor_descriptor', 'pointer'], l2_groupings=[1], load_eviction_policies=['first', '', '', '', ''], loop_orders=[[1, 0]], num_stages=3, num_warps=16, pid_type='flat', range_flattens=[None, True], range_multi_buffers=[None, False], range_num_stages=[0, 0], range_unroll_factors=[0, 1], range_warp_specializes=[None, None])
-# Tiny shapes (BH=1): persistent from autotuner
-_PERSISTENT = helion.Config(block_sizes=[8], indexing=['tensor_descriptor', 'tensor_descriptor', 'tensor_descriptor', 'tensor_descriptor', 'pointer', 'pointer', 'pointer'], l2_groupings=[32], load_eviction_policies=['first', 'first', 'last', '', 'first'], loop_orders=[[1, 0]], maxnreg=64, num_sm_multiplier=4, num_stages=3, num_warps=16, pid_type='persistent_blocked', range_flattens=[True, False], range_multi_buffers=[False, True], range_num_stages=[1, 4], range_unroll_factors=[0, 1], range_warp_specializes=[True, None], static_ranges=[False])
+# Based on ramizik's config (range_num_stages=[0,3] is key) + our optimizations:
+# tf32 dots, exp2, acc=state fusion, diff gating
+_LOG2E = 1.4426950408889634
+
+_TUNED = helion.Config(block_sizes=[], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor', 'pointer', 'tensor_descriptor', 'pointer'], l2_groupings=[1], load_eviction_policies=['first', '', '', '', ''], loop_orders=[[1, 0]], num_stages=3, num_warps=4, pid_type='flat', range_flattens=[None, True], range_multi_buffers=[None, False], range_num_stages=[0, 3], range_unroll_factors=[0, 0], range_warp_specializes=[None, None])
 
 SHAPE_CONFIGS: dict[tuple, helion.Config] = {
     # Test shapes
-    (1, 64, 2, 64, 64): _SMALL,
-    (2, 128, 4, 64, 64): _SWEEP_BEST,
-    (1, 256, 4, 64, 128): _SWEEP_BEST,
+    (1, 64, 2, 64, 64): _TUNED,
+    (2, 128, 4, 64, 64): _TUNED,
+    (1, 256, 4, 64, 128): _TUNED,
     # Benchmark shapes
-    (1, 64, 1, 64, 64): _PERSISTENT,  # BH=1: persistent+warp_spec (autotuned)
-    (2, 512, 3, 64, 64): _SWEEP_BEST, # BH=6: l2g=8, ruf=1 (sweep best)
-    (2, 1024, 3, 64, 64): _SWEEP_BEST,# BH=6: same
+    (1, 64, 1, 64, 64): _TUNED,
+    (2, 512, 3, 64, 64): _TUNED,
+    (2, 1024, 3, 64, 64): _TUNED,
 }
-
-# exp -> exp2 constant: exp(x) = exp2(x * LOG2E)
-_LOG2E = 1.4426950408889634
 
 
 def _make_kernel(config: helion.Config):
@@ -47,10 +43,9 @@ def _make_kernel(config: helion.Config):
         NT = (T + C - 1) // C
         h_out = torch.empty(B, NT, H, K, V, dtype=k.dtype, device=k.device)
         v_out = torch.empty_like(u)
-
         BH = B * H
 
-        for flat, tv in hl.tile([BH, V], block_size=[1, None]):
+        for flat, tv in hl.tile([BH, V], block_size=[1, 8]):
             b_idx = flat.begin // H
             h_idx = flat.begin % H
             state = hl.zeros([K, tv], dtype=torch.float32)
@@ -59,25 +54,20 @@ def _make_kernel(config: helion.Config):
                 chunk_idx = tc.begin // C
                 t_end = min(tc.begin + C, T) - 1
 
-                # Store current state as h_out for this chunk
                 h_out[b_idx, chunk_idx, h_idx, :, tv] = state.to(k.dtype)
 
-                # Compute v_new = u - w @ state
                 proj = hl.dot(
                     w[b_idx, tc, h_idx, :], state, out_dtype=torch.float32
                 )
                 diff = u[b_idx, tc, h_idx, tv].to(torch.float32) - proj
                 v_out[b_idx, tc, h_idx, tv] = diff.to(u.dtype)
 
-                # Update state: state = state * exp(g_end) + k^T @ (v_new * gate)
                 g_end = g[b_idx, t_end, h_idx].to(torch.float32)
                 g_t = g[b_idx, tc, h_idx].to(torch.float32)
                 valid = tc.index < T
-                # Use exp2 instead of exp: exp(x) = exp2(x * log2(e))
                 alpha = torch.where(valid, torch.exp2((g_end - g_t) * _LOG2E), 0.0)
-                diff_gated = diff * alpha[:, None]  # gate diff not k: [C,tv] not [C,K]
+                diff_gated = diff * alpha[:, None]
 
-                # Fused state decay + accumulation
                 state = state * torch.exp2(g_end * _LOG2E)
                 state = hl.dot(
                     k[b_idx, tc, h_idx, :].T, diff_gated, acc=state, out_dtype=torch.float32
