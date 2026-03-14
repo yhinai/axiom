@@ -9,22 +9,18 @@ import helion.language as hl
 
 
 # Per-shape configs: map (B, T, H, K, V) to optimized helion.Config objects.
-# Autotuned config from B200 (full effort, 190 configs, min=0.1188ms)
-_TUNED = helion.Config(block_sizes=[], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor', 'pointer', 'tensor_descriptor', 'pointer'], l2_groupings=[1], load_eviction_policies=['first', '', '', '', ''], loop_orders=[[1, 0]], num_stages=3, num_warps=4, pid_type='flat', range_flattens=[None, True], range_multi_buffers=[None, False], range_num_stages=[0, 3], range_unroll_factors=[0, 0], range_warp_specializes=[None, None])
+# V block size controlled via block_sizes[1], gate applied to diff (not k) for fewer FLOPs
+_DEFAULT = helion.Config(block_sizes=[1, 8], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor', 'pointer', 'tensor_descriptor', 'pointer'], l2_groupings=[1], load_eviction_policies=['first', '', '', '', ''], loop_orders=[[1, 0]], num_stages=3, num_warps=4, pid_type='flat', range_flattens=[None, True], range_multi_buffers=[None, False], range_num_stages=[0, 3], range_unroll_factors=[0, 0], range_warp_specializes=[None, None])
 
 SHAPE_CONFIGS: dict[tuple, helion.Config] = {
     # Test shapes
-    (1, 64, 2, 64, 64): _TUNED,
-    (2, 128, 4, 64, 64): _TUNED,
-    (1, 256, 4, 64, 128): _TUNED,
-    # Benchmark shapes
-    (1, 64, 1, 64, 64): _TUNED,
-    (2, 512, 3, 64, 64): _TUNED,
-    (2, 1024, 3, 64, 64): _TUNED,
-    (3, 1024, 4, 100, 100): _TUNED,
-    (4, 1024, 4, 128, 128): _TUNED,
-    (2, 1536, 4, 128, 128): _TUNED,
-    (4, 2048, 8, 64, 64): _TUNED,
+    (1, 64, 2, 64, 64): _DEFAULT,
+    (2, 128, 4, 64, 64): _DEFAULT,
+    (1, 256, 4, 64, 128): _DEFAULT,
+    # Benchmark shapes — per-shape tuning targets
+    (1, 64, 1, 64, 64): _DEFAULT,    # BH=1, tiny: needs max parallelism
+    (2, 512, 3, 64, 64): _DEFAULT,   # BH=6, medium: balance parallelism/efficiency
+    (2, 1024, 3, 64, 64): _DEFAULT,  # BH=6, large: same as medium
 }
 
 # exp -> exp2 constant: exp(x) = exp2(x * LOG2E)
@@ -51,7 +47,7 @@ def _make_kernel(config: helion.Config):
 
         BH = B * H
 
-        for flat, tv in hl.tile([BH, V], block_size=[1, 8]):
+        for flat, tv in hl.tile([BH, V]):
             b_idx = flat.begin // H
             h_idx = flat.begin % H
             state = hl.zeros([K, tv], dtype=torch.float32)
@@ -76,11 +72,13 @@ def _make_kernel(config: helion.Config):
                 valid = tc.index < T
                 # Use exp2 instead of exp: exp(x) = exp2(x * log2(e))
                 alpha = torch.where(valid, torch.exp2((g_end - g_t) * _LOG2E), 0.0)
-                k_adj = k[b_idx, tc, h_idx, :] * alpha[:, None]
+                diff_gated = diff * alpha[:, None]  # gate diff not k: [C,tv] not [C,K]
 
                 # Fused state decay + accumulation
                 state = state * torch.exp2(g_end * _LOG2E)
-                state = hl.dot(k_adj.T, diff, acc=state, out_dtype=torch.float32)
+                state = hl.dot(
+                    k[b_idx, tc, h_idx, :].T, diff_gated, acc=state, out_dtype=torch.float32
+                )
 
         return h_out, v_out
 
