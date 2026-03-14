@@ -9,19 +9,22 @@ import helion.language as hl
 
 
 # Per-shape configs: map (B, T, H, K, V) to optimized helion.Config objects.
+# Autotuned config from B200
+_TUNED = helion.Config(block_sizes=[], indexing=['pointer', 'pointer', 'pointer', 'pointer', 'tensor_descriptor', 'pointer', 'tensor_descriptor'], l2_groupings=[1], load_eviction_policies=['first', '', '', 'first', 'first'], loop_orders=[[0, 1]], num_stages=1, num_warps=4, pid_type='flat', range_flattens=[None, None], range_multi_buffers=[None, None], range_num_stages=[0, 0], range_unroll_factors=[0, 0], range_warp_specializes=[None, None])
+
 SHAPE_CONFIGS: dict[tuple, helion.Config] = {
     # Test shapes
-    (1, 64, 2, 64, 64): helion.Config(block_sizes=[], num_warps=4, num_stages=1),
-    (2, 128, 4, 64, 64): helion.Config(block_sizes=[], num_warps=4, num_stages=1),
-    (1, 256, 4, 64, 128): helion.Config(block_sizes=[], num_warps=4, num_stages=1),
+    (1, 64, 2, 64, 64): _TUNED,
+    (2, 128, 4, 64, 64): _TUNED,
+    (1, 256, 4, 64, 128): _TUNED,
     # Benchmark shapes
-    (1, 64, 1, 64, 64): helion.Config(block_sizes=[], num_warps=4, num_stages=1),
-    (2, 512, 3, 64, 64): helion.Config(block_sizes=[], num_warps=4, num_stages=2),
-    (2, 1024, 3, 64, 64): helion.Config(block_sizes=[], num_warps=4, num_stages=2),
-    (3, 1024, 4, 100, 100): helion.Config(block_sizes=[], num_warps=4, num_stages=2),
-    (4, 1024, 4, 128, 128): helion.Config(block_sizes=[], num_warps=8, num_stages=2),
-    (2, 1536, 4, 128, 128): helion.Config(block_sizes=[], num_warps=8, num_stages=2),
-    (4, 2048, 8, 64, 64): helion.Config(block_sizes=[], num_warps=8, num_stages=2),
+    (1, 64, 1, 64, 64): _TUNED,
+    (2, 512, 3, 64, 64): _TUNED,
+    (2, 1024, 3, 64, 64): _TUNED,
+    (3, 1024, 4, 100, 100): _TUNED,
+    (4, 1024, 4, 128, 128): _TUNED,
+    (2, 1536, 4, 128, 128): _TUNED,
+    (4, 2048, 8, 64, 64): _TUNED,
 }
 
 
