@@ -90,6 +90,10 @@ func fetchBoard(idx int) tea.Cmd {
 		}
 		defer resp.Body.Close()
 
+		if resp.StatusCode != http.StatusOK {
+			return boardData{idx: idx, err: fmt.Errorf("HTTP %d", resp.StatusCode)}
+		}
+
 		body, _ := io.ReadAll(resp.Body)
 		var entries []entry
 		if err := json.Unmarshal(body, &entries); err != nil {
@@ -132,9 +136,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 	case boardData:
-		m.boards[msg.idx] = msg.entries
-		m.errors[msg.idx] = msg.err
-		m.lastFetch = time.Now()
+		if msg.err == nil {
+			m.boards[msg.idx] = msg.entries
+			m.errors[msg.idx] = nil
+			m.lastFetch = time.Now()
+		} else if m.boards[msg.idx] == nil {
+			// Only show error if we have no prior data
+			m.errors[msg.idx] = msg.err
+		}
+		// If we have prior data and got an error, silently keep stale data
 	case tickMsg:
 		return m, tea.Batch(fetchAll(), tickCmd())
 	}
