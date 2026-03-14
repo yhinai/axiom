@@ -9,24 +9,23 @@ import helion.language as hl
 
 
 # Per-shape configs: map (B, T, H, K, V) to optimized helion.Config objects.
-# Per-shape tuned on B200 (311 configs, geomean=9.62e-06s)
-_BASE = helion.Config(block_sizes=[8], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor', 'pointer', 'tensor_descriptor', 'pointer'], l2_groupings=[1], load_eviction_policies=['first', '', '', '', ''], loop_orders=[[1, 0]], num_stages=3, num_warps=4, pid_type='flat', range_flattens=[None, True], range_multi_buffers=[None, False], range_num_stages=[0, 3], range_unroll_factors=[0, 0], range_warp_specializes=[None, None])
-# Small shapes: higher warps for better occupancy
-_SMALL = helion.Config(block_sizes=[8], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor', 'pointer', 'tensor_descriptor', 'pointer'], l2_groupings=[1], load_eviction_policies=['first', '', '', '', ''], loop_orders=[[1, 0]], num_stages=3, num_warps=16, pid_type='flat', range_flattens=[None, True], range_multi_buffers=[None, False], range_num_stages=[0, 3], range_unroll_factors=[0, 0], range_warp_specializes=[None, None])
+# Sweep-optimized on B200: 249 configs tested, best=70.7us
+# Key findings: l2g=8, rns=0, ruf=1 optimal for larger shapes
+_SWEEP_BEST = helion.Config(block_sizes=[8], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor', 'pointer', 'tensor_descriptor', 'pointer'], l2_groupings=[8], load_eviction_policies=['first', '', '', '', ''], loop_orders=[[1, 0]], num_stages=3, num_warps=4, pid_type='flat', range_flattens=[None, True], range_multi_buffers=[None, False], range_num_stages=[0, 0], range_unroll_factors=[0, 1], range_warp_specializes=[None, None])
+# Small shapes (BH<=2): higher warps for better occupancy
+_SMALL = helion.Config(block_sizes=[8], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor', 'pointer', 'tensor_descriptor', 'pointer'], l2_groupings=[1], load_eviction_policies=['first', '', '', '', ''], loop_orders=[[1, 0]], num_stages=3, num_warps=16, pid_type='flat', range_flattens=[None, True], range_multi_buffers=[None, False], range_num_stages=[0, 0], range_unroll_factors=[0, 1], range_warp_specializes=[None, None])
 # Tiny shapes (BH=1): persistent_blocked with warp specialization (from autotuner)
 _PERSISTENT = helion.Config(block_sizes=[8], indexing=['tensor_descriptor', 'tensor_descriptor', 'tensor_descriptor', 'tensor_descriptor', 'pointer', 'pointer', 'pointer'], l2_groupings=[32], load_eviction_policies=['first', 'first', 'last', '', 'first'], loop_orders=[[1, 0]], maxnreg=64, num_sm_multiplier=4, num_stages=3, num_warps=16, pid_type='persistent_blocked', range_flattens=[True, False], range_multi_buffers=[False, True], range_num_stages=[1, 4], range_unroll_factors=[0, 1], range_warp_specializes=[True, None], static_ranges=[False])
-# Larger shapes: l2_groupings=[4] for better cache locality
-_L2G4 = helion.Config(block_sizes=[8], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor', 'pointer', 'tensor_descriptor', 'pointer'], l2_groupings=[4], load_eviction_policies=['first', '', '', '', ''], loop_orders=[[1, 0]], num_stages=3, num_warps=4, pid_type='flat', range_flattens=[None, True], range_multi_buffers=[None, False], range_num_stages=[0, 3], range_unroll_factors=[0, 0], range_warp_specializes=[None, None])
 
 SHAPE_CONFIGS: dict[tuple, helion.Config] = {
     # Test shapes
     (1, 64, 2, 64, 64): _SMALL,
-    (2, 128, 4, 64, 64): _BASE,
-    (1, 256, 4, 64, 128): _BASE,
-    # Benchmark shapes (per-shape tuned)
-    (1, 64, 1, 64, 64): _PERSISTENT, # BH=1, tiny: persistent+warp_spec (autotuned)
-    (2, 512, 3, 64, 64): _L2G4,     # BH=6, medium: l2 grouping helps
-    (2, 1024, 3, 64, 64): _L2G4,    # BH=6, large: l2 grouping helps
+    (2, 128, 4, 64, 64): _SWEEP_BEST,
+    (1, 256, 4, 64, 128): _SWEEP_BEST,
+    # Benchmark shapes (sweep-optimized)
+    (1, 64, 1, 64, 64): _PERSISTENT,  # BH=1: persistent+warp_spec (autotuned)
+    (2, 512, 3, 64, 64): _SWEEP_BEST, # BH=6: l2g=8, rns=0, ruf=1 (sweep best)
+    (2, 1024, 3, 64, 64): _SWEEP_BEST,# BH=6: same (sweep winner at 70.7us)
 }
 
 # exp -> exp2 constant: exp(x) = exp2(x * LOG2E)
