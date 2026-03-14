@@ -51,7 +51,7 @@ def _make_kernel(config: helion.Config):
 
         BH = B * H
 
-        for flat, tv in hl.tile([BH, V]):
+        for flat, tv in hl.tile([BH, V], block_size=[1, None]):
             b_idx = flat.begin // H
             h_idx = flat.begin % H
             state = hl.zeros([K, tv], dtype=torch.float32)
