@@ -9,18 +9,22 @@ import helion.language as hl
 
 
 # Per-shape configs: map (B, T, H, K, V) to optimized helion.Config objects.
-# V block size controlled via block_sizes[1], gate applied to diff (not k) for fewer FLOPs
-_DEFAULT = helion.Config(block_sizes=[1, 8], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor', 'pointer', 'tensor_descriptor', 'pointer'], l2_groupings=[1], load_eviction_policies=['first', '', '', '', ''], loop_orders=[[1, 0]], num_stages=3, num_warps=4, pid_type='flat', range_flattens=[None, True], range_multi_buffers=[None, False], range_num_stages=[0, 3], range_unroll_factors=[0, 0], range_warp_specializes=[None, None])
+# Per-shape tuned on B200 (311 configs, geomean=9.62e-06s)
+_BASE = helion.Config(block_sizes=[1, 8], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor', 'pointer', 'tensor_descriptor', 'pointer'], l2_groupings=[1], load_eviction_policies=['first', '', '', '', ''], loop_orders=[[1, 0]], num_stages=3, num_warps=4, pid_type='flat', range_flattens=[None, True], range_multi_buffers=[None, False], range_num_stages=[0, 3], range_unroll_factors=[0, 0], range_warp_specializes=[None, None])
+# Small shapes: higher warps for better occupancy
+_SMALL = helion.Config(block_sizes=[1, 8], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor', 'pointer', 'tensor_descriptor', 'pointer'], l2_groupings=[1], load_eviction_policies=['first', '', '', '', ''], loop_orders=[[1, 0]], num_stages=3, num_warps=16, pid_type='flat', range_flattens=[None, True], range_multi_buffers=[None, False], range_num_stages=[0, 3], range_unroll_factors=[0, 0], range_warp_specializes=[None, None])
+# Larger shapes: l2_groupings=[4] for better cache locality
+_L2G4 = helion.Config(block_sizes=[1, 8], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor', 'pointer', 'tensor_descriptor', 'pointer'], l2_groupings=[4], load_eviction_policies=['first', '', '', '', ''], loop_orders=[[1, 0]], num_stages=3, num_warps=4, pid_type='flat', range_flattens=[None, True], range_multi_buffers=[None, False], range_num_stages=[0, 3], range_unroll_factors=[0, 0], range_warp_specializes=[None, None])
 
 SHAPE_CONFIGS: dict[tuple, helion.Config] = {
     # Test shapes
-    (1, 64, 2, 64, 64): _DEFAULT,
-    (2, 128, 4, 64, 64): _DEFAULT,
-    (1, 256, 4, 64, 128): _DEFAULT,
-    # Benchmark shapes — per-shape tuning targets
-    (1, 64, 1, 64, 64): _DEFAULT,    # BH=1, tiny: needs max parallelism
-    (2, 512, 3, 64, 64): _DEFAULT,   # BH=6, medium: balance parallelism/efficiency
-    (2, 1024, 3, 64, 64): _DEFAULT,  # BH=6, large: same as medium
+    (1, 64, 2, 64, 64): _SMALL,
+    (2, 128, 4, 64, 64): _BASE,
+    (1, 256, 4, 64, 128): _BASE,
+    # Benchmark shapes (per-shape tuned)
+    (1, 64, 1, 64, 64): _SMALL,     # BH=1, tiny: high warps for occupancy
+    (2, 512, 3, 64, 64): _L2G4,     # BH=6, medium: l2 grouping helps
+    (2, 1024, 3, 64, 64): _L2G4,    # BH=6, large: l2 grouping helps
 }
 
 # exp -> exp2 constant: exp(x) = exp2(x * LOG2E)
