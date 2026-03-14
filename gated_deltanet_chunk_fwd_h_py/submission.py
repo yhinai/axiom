@@ -32,7 +32,7 @@ _LOG2E = 1.4426950408889634
 
 
 def _make_kernel(config: helion.Config):
-    @helion.kernel(static_shapes=True, dot_precision="tf32", config=config)
+    @helion.kernel(static_shapes=True, config=config)
     def kernel(
         k: torch.Tensor,   # [B, T, H, K]
         w: torch.Tensor,   # [B, T, H, K]
