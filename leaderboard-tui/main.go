@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -105,6 +106,28 @@ func formatTime(seconds float64) string {
 	}
 }
 
+func boardChanged(old, new []entry) bool {
+	if len(old) != len(new) {
+		return true
+	}
+	for i := range old {
+		if old[i].Rank != new[i].Rank || old[i].User != new[i].User || old[i].Score != new[i].Score {
+			return true
+		}
+	}
+	return false
+}
+
+func playAlert() {
+	// Try macOS system sound first, fall back to terminal bell
+	sound := "/System/Library/Sounds/Glass.aiff"
+	if _, err := os.Stat(sound); err == nil {
+		exec.Command("afplay", sound).Start()
+	} else {
+		fmt.Print("\a")
+	}
+}
+
 var httpClient = &http.Client{Timeout: 30 * time.Second}
 
 func fetchBoard(idx int) tea.Cmd {
@@ -166,6 +189,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 	case boardData:
 		if msg.err == nil {
+			if m.boards[msg.idx] != nil && boardChanged(m.boards[msg.idx], msg.entries) {
+				playAlert()
+			}
 			m.boards[msg.idx] = msg.entries
 			m.errors[msg.idx] = nil
 			m.lastFetch = time.Now()
