@@ -13,6 +13,8 @@ import helion.language as hl
 _LOG2E = 1.4426950408889634
 
 _TUNED = helion.Config(block_sizes=[], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor', 'pointer', 'tensor_descriptor', 'pointer'], l2_groupings=[1], load_eviction_policies=['first', '', '', '', ''], loop_orders=[[1, 0]], num_stages=3, num_warps=4, pid_type='flat', range_flattens=[None, True], range_multi_buffers=[None, False], range_num_stages=[0, 3], range_unroll_factors=[0, 0], range_warp_specializes=[None, None])
+# BH=1 tiny shape: persistent_blocked + warp_spec from autotuner (0.0029ms vs 0.0032ms)
+_TINY = helion.Config(block_sizes=[8], indexing=['tensor_descriptor', 'tensor_descriptor', 'tensor_descriptor', 'tensor_descriptor', 'pointer', 'pointer', 'pointer'], l2_groupings=[32], load_eviction_policies=['first', 'first', 'last', '', 'first'], loop_orders=[[1, 0]], maxnreg=64, num_sm_multiplier=4, num_stages=3, num_warps=16, pid_type='persistent_blocked', range_flattens=[True, False], range_multi_buffers=[False, True], range_num_stages=[1, 4], range_unroll_factors=[0, 1], range_warp_specializes=[True, None], static_ranges=[False])
 
 SHAPE_CONFIGS: dict[tuple, helion.Config] = {
     # Test shapes
@@ -20,7 +22,7 @@ SHAPE_CONFIGS: dict[tuple, helion.Config] = {
     (2, 128, 4, 64, 64): _TUNED,
     (1, 256, 4, 64, 128): _TUNED,
     # Benchmark shapes
-    (1, 64, 1, 64, 64): _TUNED,
+    (1, 64, 1, 64, 64): _TINY,
     (2, 512, 3, 64, 64): _TUNED,
     (2, 1024, 3, 64, 64): _TUNED,
 }
