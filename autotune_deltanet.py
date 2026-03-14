@@ -27,9 +27,15 @@ def benchmark(fn, args, warmup=20, iters=200):
 # Config variations to try for each kernel
 ###############################################################################
 def gen_fwd_h_configs():
-    """Generate config variations for chunk_fwd_h."""
+    """Generate config variations for chunk_fwd_h.
+
+    Key changes from previous version:
+    - V block size now controlled via block_sizes[1] (not hardcoded)
+    - Gate applied to diff instead of k (fewer FLOPs)
+    - acc=state fusion already in kernel
+    """
     base = dict(
-        block_sizes=[],
+        block_sizes=[1, 8],  # [BH_block=1, V_block=8]
         indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor', 'pointer', 'tensor_descriptor', 'pointer'],
         pid_type='flat',
         num_warps=4,
@@ -45,22 +51,33 @@ def gen_fwd_h_configs():
     )
     configs = [helion.Config(**base)]
 
+    # Sweep V block sizes: key parallelism knob
+    for vb in [4, 16, 32, 64]:
+        c = {**base, 'block_sizes': [1, vb]}
+        configs.append(helion.Config(**c))
+
     # Vary num_stages
     for ns in [1, 2, 4, 5, 7]:
         c = {**base, 'num_stages': ns}
         configs.append(helion.Config(**c))
 
     # Vary num_warps
-    for nw in [2, 8, 16]:
+    for nw in [2, 8, 16, 32]:
         c = {**base, 'num_warps': nw}
         configs.append(helion.Config(**c))
 
     # Try persistent PID (like recompute_w_u's 2.4x win)
     for pid in ['persistent_blocked', 'persistent_interleaved']:
-        for nsm in [4, 16, 64]:
+        for nsm in [4, 8, 16]:
             for mreg in [32, 64, 128]:
                 c = {**base, 'pid_type': pid, 'num_sm_multiplier': nsm, 'maxnreg': mreg}
                 configs.append(helion.Config(**c))
+
+    # Persistent + different V block sizes
+    for vb in [4, 8, 16]:
+        c = {**base, 'block_sizes': [1, vb], 'pid_type': 'persistent_blocked',
+             'num_sm_multiplier': 16, 'maxnreg': 32, 'num_warps': 32, 'l2_groupings': [16]}
+        configs.append(helion.Config(**c))
 
     # Vary range_num_stages
     for rns in [0, 1, 2, 4]:
@@ -80,6 +97,15 @@ def gen_fwd_h_configs():
 
     # Different loop orders
     c = {**base, 'loop_orders': [[0, 1]]}
+    configs.append(helion.Config(**c))
+
+    # L2 grouping variations
+    for lg in [4, 16]:
+        c = {**base, 'l2_groupings': [lg]}
+        configs.append(helion.Config(**c))
+
+    # All tensor_descriptor indexing
+    c = {**base, 'indexing': ['tensor_descriptor'] * 7}
     configs.append(helion.Config(**c))
 
     return configs
@@ -205,8 +231,10 @@ def gen_recompute_configs():
 ###############################################################################
 # Kernel functions
 ###############################################################################
+_LOG2E = 1.4426950408889634
+
 def make_fwd_h(config):
-    @helion.kernel(static_shapes=True, dot_precision="ieee", config=config)
+    @helion.kernel(static_shapes=True, dot_precision="tf32", config=config)
     def kernel(k: torch.Tensor, w: torch.Tensor, u: torch.Tensor, g: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         B, T, H, K = k.shape
         V = u.shape[-1]
@@ -217,7 +245,7 @@ def make_fwd_h(config):
         h_out = torch.empty(B, NT, H, K, V, dtype=k.dtype, device=k.device)
         v_out = torch.empty_like(u)
         BH = B * H
-        for flat, tv in hl.tile([BH, V], block_size=[1, 8]):
+        for flat, tv in hl.tile([BH, V]):
             b_idx = flat.begin // H
             h_idx = flat.begin % H
             state = hl.zeros([K, tv], dtype=torch.float32)
@@ -231,11 +259,12 @@ def make_fwd_h(config):
                 g_end = g[b_idx, t_end, h_idx].to(torch.float32)
                 g_t = g[b_idx, tc, h_idx].to(torch.float32)
                 valid = tc.index < T
-                alpha = torch.where(valid, torch.exp(g_end - g_t), 0.0)
-                k_adj = k[b_idx, tc, h_idx, :] * alpha[:, None]
-                state = state * torch.exp(g_end)
-                upd = hl.dot(k_adj.T, diff, out_dtype=torch.float32)
-                state = state + upd
+                alpha = torch.where(valid, torch.exp2((g_end - g_t) * _LOG2E), 0.0)
+                diff_gated = diff * alpha[:, None]
+                state = state * torch.exp2(g_end * _LOG2E)
+                state = hl.dot(
+                    k[b_idx, tc, h_idx, :].T, diff_gated, acc=state, out_dtype=torch.float32
+                )
         return h_out, v_out
     return kernel
 
@@ -366,10 +395,10 @@ if __name__ == "__main__":
         def make_fwd_h_args(shape):
             B, T, H, K, V = shape
             return (
-                torch.randn(B, T, H, K, device="cuda", dtype=torch.bfloat16),
-                torch.randn(B, T, H, K, device="cuda", dtype=torch.bfloat16),
-                torch.randn(B, T, H, V, device="cuda", dtype=torch.bfloat16),
-                torch.randn(B, T, H, device="cuda", dtype=torch.bfloat16),
+                torch.randn(B, T, H, K, device="cuda", dtype=torch.float32),
+                torch.randn(B, T, H, K, device="cuda", dtype=torch.float32),
+                torch.randn(B, T, H, V, device="cuda", dtype=torch.float32),
+                torch.randn(B, T, H, device="cuda", dtype=torch.float32),
             )
         tune_kernel("CHUNK_FWD_H", make_fwd_h, gen_fwd_h_configs(), deltanet_shapes, make_fwd_h_args)
 
