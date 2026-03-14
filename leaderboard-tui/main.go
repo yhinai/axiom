@@ -61,6 +61,7 @@ type model struct {
 	boards    [4][]entry
 	errors    [4]error
 	lastFetch time.Time
+	fetching  bool
 	width     int
 	height    int
 }
@@ -78,13 +79,15 @@ func formatTime(seconds float64) string {
 	}
 }
 
+var httpClient = &http.Client{Timeout: 30 * time.Second}
+
 func fetchBoard(idx int) tea.Cmd {
 	return func() tea.Msg {
 		url := fmt.Sprintf("%s/submissions/%s/%s", apiBase, leaderboards[idx], gpu)
 		req, _ := http.NewRequest("GET", url, nil)
 		req.Header.Set("X-Popcorn-Cli-Id", cliID)
 
-		resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+		resp, err := httpClient.Do(req)
 		if err != nil {
 			return boardData{idx: idx, err: err}
 		}
@@ -115,7 +118,7 @@ func fetchAll() tea.Cmd {
 }
 
 func tickCmd() tea.Cmd {
-	return tea.Tick(30*time.Second, func(t time.Time) tea.Msg { return tickMsg(t) })
+	return tea.Tick(15*time.Second, func(t time.Time) tea.Msg { return tickMsg(t) })
 }
 
 func (m model) Init() tea.Cmd {
@@ -129,7 +132,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c", "esc":
 			return m, tea.Quit
 		case "r":
-			m.lastFetch = time.Now()
+			m.fetching = true
 			return m, fetchAll()
 		}
 	case tea.WindowSizeMsg:
@@ -140,12 +143,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.boards[msg.idx] = msg.entries
 			m.errors[msg.idx] = nil
 			m.lastFetch = time.Now()
+			m.fetching = false
 		} else if m.boards[msg.idx] == nil {
-			// Only show error if we have no prior data
 			m.errors[msg.idx] = msg.err
+			m.fetching = false
 		}
-		// If we have prior data and got an error, silently keep stale data
 	case tickMsg:
+		m.fetching = true
 		return m, tea.Batch(fetchAll(), tickCmd())
 	}
 	return m, nil
@@ -257,7 +261,11 @@ func (m model) View() string {
 	board := lipgloss.JoinHorizontal(lipgloss.Top, columns[:]...)
 
 	// Footer
-	ts := "..."
+	status := "r refresh   q quit"
+	if m.fetching {
+		status = "fetching...   q quit"
+	}
+	ts := "never"
 	if !m.lastFetch.IsZero() {
 		ts = m.lastFetch.Format("15:04:05")
 	}
@@ -265,7 +273,7 @@ func (m model) View() string {
 		Foreground(dimGray).
 		Width(m.width).
 		AlignHorizontal(lipgloss.Center).
-		Render(fmt.Sprintf("%s   r refresh   q quit", ts))
+		Render(fmt.Sprintf("%s   %s", ts, status))
 
 	return "\n" + title + "\n\n" + board + "\n\n" + footer + "\n"
 }
