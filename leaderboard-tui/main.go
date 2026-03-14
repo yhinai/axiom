@@ -6,19 +6,45 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"gopkg.in/yaml.v3"
 )
 
 const (
 	apiBase = "https://site--bot--dxfjds728w5v.code.run"
-	cliID   = "12840e6c-2505-451c-9dc1-46f5354685ba"
 	gpu     = "B200_Nebius"
 	topN    = 10
 )
+
+type popcornConfig struct {
+	CliID string `yaml:"cli_id"`
+}
+
+func loadCliID() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("cannot find home directory: %w", err)
+	}
+	data, err := os.ReadFile(filepath.Join(home, ".popcorn.yaml"))
+	if err != nil {
+		return "", fmt.Errorf("cannot read ~/.popcorn.yaml: %w", err)
+	}
+	var cfg popcornConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return "", fmt.Errorf("cannot parse ~/.popcorn.yaml: %w", err)
+	}
+	if cfg.CliID == "" {
+		return "", fmt.Errorf("cli_id not found in ~/.popcorn.yaml")
+	}
+	return cfg.CliID, nil
+}
+
+var cliID string
 
 var leaderboards = [4]string{
 	"causal_conv1d",
@@ -279,6 +305,14 @@ func (m model) View() string {
 }
 
 func main() {
+	id, err := loadCliID()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(os.Stderr, "Run 'popcorn register github' to set up your CLI ID.")
+		os.Exit(1)
+	}
+	cliID = id
+
 	p := tea.NewProgram(model{}, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
