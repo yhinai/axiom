@@ -1,0 +1,89 @@
+#!POPCORN leaderboard gated_deltanet_chunk_fwd_o
+#!POPCORN gpu B200_Nebius
+
+from task import input_t, output_t
+
+import torch
+import helion
+import helion.language as hl
+
+
+# Per-shape configs: map (B, T, H, K, V) to optimized helion.Config objects.
+SHAPE_CONFIGS: dict[tuple, helion.Config] = {
+    # Test shapes
+    (1, 64, 2, 64, 64): helion.Config(block_sizes=[], num_warps=4, num_stages=1),
+    (2, 128, 4, 64, 64): helion.Config(block_sizes=[], num_warps=4, num_stages=1),
+    (1, 256, 4, 64, 128): helion.Config(block_sizes=[], num_warps=4, num_stages=1),
+    # Benchmark shapes
+    (1, 64, 1, 64, 64): helion.Config(block_sizes=[], num_warps=4, num_stages=1),
+    (2, 512, 3, 64, 64): helion.Config(block_sizes=[], num_warps=4, num_stages=2),
+    (2, 1024, 3, 64, 64): helion.Config(block_sizes=[], num_warps=4, num_stages=2),
+    (3, 1024, 4, 100, 100): helion.Config(block_sizes=[], num_warps=4, num_stages=2),
+    (4, 1024, 4, 128, 128): helion.Config(block_sizes=[], num_warps=8, num_stages=2),
+    (2, 1536, 4, 128, 128): helion.Config(block_sizes=[], num_warps=8, num_stages=2),
+    (4, 2048, 8, 64, 64): helion.Config(block_sizes=[], num_warps=8, num_stages=2),
+}
+
+
+def _make_kernel(config: helion.Config):
+    @helion.kernel(static_shapes=True, dot_precision="ieee", config=config)
+    def kernel(
+        q: torch.Tensor,     # [B, T, H, K]
+        k: torch.Tensor,     # [B, T, H, K]
+        v: torch.Tensor,     # [B, T, H, V]
+        h: torch.Tensor,     # [B, NT, H, K, V]
+        g: torch.Tensor,     # [B, T, H]
+        scale: float,
+    ) -> torch.Tensor:
+        B, T, H, K = q.shape
+        V = v.shape[-1]
+        C = 64
+        K = hl.specialize(K)
+        V = hl.specialize(V)
+
+        out = torch.empty_like(v)
+
+        BH = B * H
+        for flat_bh, tile_t in hl.tile([BH, T], block_size=[1, C]):
+            b_idx = flat_bh.begin // H
+            h_idx = flat_bh.begin % H
+            c_idx = tile_t.begin // C
+
+            g_vals = g[b_idx, tile_t, h_idx].to(torch.float32)  # [C]
+            q_chunk = q[b_idx, tile_t, h_idx, :].to(torch.float32)  # [C, K]
+            k_chunk = k[b_idx, tile_t, h_idx, :].to(torch.float32)  # [C, K]
+            v_chunk = v[b_idx, tile_t, h_idx, :]  # [C, V]
+
+            # Local: qk = q @ k^T * exp(g_i - g_j), masked causal
+            qk = hl.dot(q_chunk, k_chunk.T)
+            # Apply gating: exp(g_i - g_j) -- numerically stable since g_i - g_j <= 0 for i >= j
+            g_diff = g_vals[:, None] - g_vals[None, :]
+            qk = qk * torch.exp(g_diff)
+            # Causal mask
+            idx = hl.arange(tile_t.block_size)
+            mask = idx[:, None] >= idx[None, :]
+            qk = torch.where(mask, qk, 0.0)
+            # local_out = qk @ v
+            local_out = hl.dot(qk.to(v.dtype), v_chunk)
+
+            # Global: (q @ h) * exp(g) -- g is negative cumsum so exp(g) <= 1
+            q_g = q_chunk * torch.exp(g_vals)[:, None]
+            global_out = hl.dot(q_g, h[b_idx, c_idx, h_idx, :, :])
+
+            out[b_idx, tile_t, h_idx, :] = ((global_out + local_out) * scale).to(out.dtype)
+
+        return out
+
+    return kernel
+
+
+_KERNELS = {shape: _make_kernel(cfg) for shape, cfg in SHAPE_CONFIGS.items()}
+
+
+def custom_kernel(data: input_t) -> output_t:
+    q, k, v_new, h, g = data
+    B, T, H, K = q.shape
+    V = v_new.shape[-1]
+    scale = K ** -0.5
+    kernel = _KERNELS[(B, T, H, K, V)]
+    return kernel(q, k, v_new, h, g, scale)
