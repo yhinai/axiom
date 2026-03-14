@@ -27,6 +27,9 @@ SHAPE_CONFIGS: dict[tuple, helion.Config] = {
     (4, 2048, 8, 64, 64): _TUNED,
 }
 
+# exp -> exp2 constant: exp(x) = exp2(x * LOG2E)
+_LOG2E = 1.4426950408889634
+
 
 def _make_kernel(config: helion.Config):
     @helion.kernel(static_shapes=True, dot_precision="ieee", config=config)
@@ -71,12 +74,13 @@ def _make_kernel(config: helion.Config):
                 g_end = g[b_idx, t_end, h_idx].to(torch.float32)
                 g_t = g[b_idx, tc, h_idx].to(torch.float32)
                 valid = tc.index < T
-                alpha = torch.where(valid, torch.exp(g_end - g_t), 0.0)
+                # Use exp2 instead of exp: exp(x) = exp2(x * log2(e))
+                alpha = torch.where(valid, torch.exp2((g_end - g_t) * _LOG2E), 0.0)
                 k_adj = k[b_idx, tc, h_idx, :] * alpha[:, None]
 
-                state = state * torch.exp(g_end)
-                upd = hl.dot(k_adj.T, diff, out_dtype=torch.float32)
-                state = state + upd
+                # Fused state decay + accumulation
+                state = state * torch.exp2(g_end * _LOG2E)
+                state = hl.dot(k_adj.T, diff, acc=state, out_dtype=torch.float32)
 
         return h_out, v_out
 
