@@ -8,8 +8,13 @@ import helion
 import helion.language as hl
 
 
-# Memory-bound elementwise kernel. Key: maximize bandwidth utilization.
-_TUNED = helion.Config(block_sizes=[1, 1024], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor'], l2_groupings=[8], load_eviction_policies=['first', '', 'first'], loop_orders=[[0, 2, 1]], num_stages=7, num_warps=2, pid_type='flat', range_flattens=[None, False], range_multi_buffers=[None, True], range_num_stages=[0, 0], range_unroll_factors=[0, 0], range_warp_specializes=[None, False], static_ranges=[False])
+# Memory-bound elementwise kernel. Per-shape sweep on B200.
+# Shape 1 winner: bs_4096 + nw4 (S_block=4096 reduces launch overhead)
+_S1 = helion.Config(block_sizes=[1, 4096], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor'], l2_groupings=[8], load_eviction_policies=['first', '', 'first'], loop_orders=[[0, 2, 1]], num_stages=7, num_warps=4, pid_type='flat', range_flattens=[None, False], range_multi_buffers=[None, True], range_num_stages=[0, 0], range_unroll_factors=[0, 0], range_warp_specializes=[None, False], static_ranges=[False])
+# Shape 2 winner: nw4 + bs_2048
+_S2 = helion.Config(block_sizes=[1, 2048], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor'], l2_groupings=[8], load_eviction_policies=['first', '', 'first'], loop_orders=[[0, 2, 1]], num_stages=7, num_warps=4, pid_type='flat', range_flattens=[None, False], range_multi_buffers=[None, True], range_num_stages=[0, 0], range_unroll_factors=[0, 0], range_warp_specializes=[None, False], static_ranges=[False])
+# Shape 3 winner: l2g16 + nw4
+_S3 = helion.Config(block_sizes=[1, 4096], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor'], l2_groupings=[16], load_eviction_policies=['first', '', 'first'], loop_orders=[[0, 2, 1]], num_stages=7, num_warps=4, pid_type='flat', range_flattens=[None, False], range_multi_buffers=[None, True], range_num_stages=[0, 0], range_unroll_factors=[0, 0], range_warp_specializes=[None, False], static_ranges=[False])
 _DEFAULT = helion.Config(block_sizes=[1, 256], num_warps=4, num_stages=1)
 
 SHAPE_CONFIGS: dict[tuple, helion.Config] = {
@@ -19,10 +24,10 @@ SHAPE_CONFIGS: dict[tuple, helion.Config] = {
     (1, 256, 256, 3): _DEFAULT,
     (1, 128, 64, 8): _DEFAULT,
     (4, 64, 128, 4): _DEFAULT,
-    # Benchmark shapes
-    (1, 1536, 2048, 4): _TUNED,
-    (1, 2560, 2048, 4): _TUNED,
-    (1, 2560, 4096, 4): _TUNED,
+    # Benchmark shapes (per-shape sweep winners)
+    (1, 1536, 2048, 4): _S1,
+    (1, 2560, 2048, 4): _S2,
+    (1, 2560, 4096, 4): _S3,
 }
 
 
