@@ -8,8 +8,8 @@ import helion
 import helion.language as hl
 
 
-# Per-shape configs: map (B, D, S, W) to optimized helion.Config objects.
-# Autotuned config from B200 (without ACF to avoid PTXAS errors on KernelBot)
+# Optimized configs from B200
+# Applied lessons from chunk_fwd_h: range_num_stages, pipeline depth, l2_groupings
 _TUNED = helion.Config(block_sizes=[1, 1024], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor'], l2_groupings=[8], load_eviction_policies=['first', '', 'first'], loop_orders=[[0, 2, 1]], num_stages=7, num_warps=2, pid_type='flat', range_flattens=[None, False], range_multi_buffers=[None, True], range_num_stages=[0, 0], range_unroll_factors=[0, 0], range_warp_specializes=[None, False], static_ranges=[False])
 _DEFAULT = helion.Config(block_sizes=[1, 256], num_warps=4, num_stages=1)
 
@@ -32,27 +32,27 @@ SHAPE_CONFIGS: dict[tuple, helion.Config] = {
 def _make_kernel(config: helion.Config):
     @helion.kernel(static_shapes=True, config=config)
     def kernel(
-        x_pad: torch.Tensor,  # (B, D, L) zero-padded input
+        x: torch.Tensor,     # (B, D, S) original input (NO padding)
         w: torch.Tensor,      # (D, W) filter coefficients
         b: torch.Tensor,      # (D,) additive bias
     ) -> torch.Tensor:
-        B = x_pad.size(0)
-        D = x_pad.size(1)
-        L = x_pad.size(2)
+        B = x.size(0)
+        D = x.size(1)
+        S = x.size(2)
         W = hl.specialize(w.size(1))
-        N = L - W + 1
 
-        y = torch.empty(B, D, N, dtype=x_pad.dtype, device=x_pad.device)
+        y = torch.empty(B, D, S, dtype=x.dtype, device=x.device)
 
-        for rb, rd, rs in hl.tile([B, D, N], block_size=[1, None, None]):
+        for rb, rd, rs in hl.tile([B, D, S], block_size=[1, None, None]):
             bi = rb.begin
             acc = hl.zeros([rd, rs], dtype=torch.float32)
             for j in range(W):
-                coeff = w[rd, j].to(torch.float32)
-                x_val = hl.load(x_pad, [bi, rd, rs.index + j]).to(torch.float32)
-                acc = acc + x_val * coeff[:, None]
-            acc = acc + b[rd].to(torch.float32)[:, None]
-            y[rb, rd, rs] = acc[None, :, :].to(y.dtype)
+                # Causal: index = s - (W-1) + j, mask out negative indices (zero-pad)
+                src_idx = rs.index + j - (W - 1)
+                x_val = hl.load(x, [bi, rd, src_idx], extra_mask=src_idx >= 0)
+                acc = acc + x_val * w[rd, j][:, None]
+            acc = acc + b[rd][:, None]
+            y[rb, rd, rs] = acc[None, :, :]
 
         return y
 
@@ -67,6 +67,4 @@ def custom_kernel(data: input_t) -> output_t:
     B, D, S = x.shape
     W = weight.shape[1]
     kernel = _KERNELS[(B, D, S, W)]
-    pad_zeros = torch.zeros(B, D, W - 1, dtype=x.dtype, device=x.device)
-    padded = torch.cat([pad_zeros, x], dim=2)
-    return kernel(padded, weight, bias)
+    return kernel(x, weight, bias)
