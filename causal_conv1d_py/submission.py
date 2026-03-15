@@ -8,8 +8,7 @@ import helion
 import helion.language as hl
 
 
-# Optimized configs from B200
-# Applied lessons from chunk_fwd_h: range_num_stages, pipeline depth, l2_groupings
+# Memory-bound elementwise kernel. Key: maximize bandwidth utilization.
 _TUNED = helion.Config(block_sizes=[1, 1024], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor'], l2_groupings=[8], load_eviction_policies=['first', '', 'first'], loop_orders=[[0, 2, 1]], num_stages=7, num_warps=2, pid_type='flat', range_flattens=[None, False], range_multi_buffers=[None, True], range_num_stages=[0, 0], range_unroll_factors=[0, 0], range_warp_specializes=[None, False], static_ranges=[False])
 _DEFAULT = helion.Config(block_sizes=[1, 256], num_warps=4, num_stages=1)
 
@@ -21,8 +20,6 @@ SHAPE_CONFIGS: dict[tuple, helion.Config] = {
     (1, 128, 64, 8): _DEFAULT,
     (4, 64, 128, 4): _DEFAULT,
     # Benchmark shapes
-    (1, 768, 512, 4): _TUNED,
-    (1, 768, 2048, 4): _TUNED,
     (1, 1536, 2048, 4): _TUNED,
     (1, 2560, 2048, 4): _TUNED,
     (1, 2560, 4096, 4): _TUNED,
@@ -32,9 +29,9 @@ SHAPE_CONFIGS: dict[tuple, helion.Config] = {
 def _make_kernel(config: helion.Config):
     @helion.kernel(static_shapes=True, config=config)
     def kernel(
-        x: torch.Tensor,     # (B, D, S) original input (NO padding)
-        w: torch.Tensor,      # (D, W) filter coefficients
-        b: torch.Tensor,      # (D,) additive bias
+        x: torch.Tensor,      # (B, D, S)
+        w: torch.Tensor,      # (D, W)
+        b: torch.Tensor,      # (D,)
     ) -> torch.Tensor:
         B = x.size(0)
         D = x.size(1)
@@ -47,7 +44,6 @@ def _make_kernel(config: helion.Config):
             bi = rb.begin
             acc = hl.zeros([rd, rs], dtype=torch.float32)
             for j in range(W):
-                # Causal: index = s - (W-1) + j, mask out negative indices (zero-pad)
                 src_idx = rs.index + j - (W - 1)
                 x_val = hl.load(x, [bi, rd, src_idx], extra_mask=src_idx >= 0)
                 acc = acc + x_val * w[rd, j][:, None]
