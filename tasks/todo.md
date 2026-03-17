@@ -17,7 +17,14 @@
 
 ## Next Audit
 
-- [ ] Search current public Helion submissions and upstream PRs for per-kernel compute, memory, and buffering optimizations that are not yet reflected locally.
-- [ ] Compare each online optimization pattern against the current local kernels and note any gaps in `EXTERNAL_KERNEL_REVIEW.md`.
-- [ ] Implement any additional high-confidence wins and validate them with `eval.py test|benchmark` on `helion`.
-- [ ] Re-run the full all-kernels benchmark and record the best verified results.
+- [x] Search current public Helion submissions and upstream PRs for per-kernel compute, memory, and buffering optimizations that are not yet reflected locally.
+- [x] Compare each online optimization pattern against the current local kernels and note any gaps in `EXTERNAL_KERNEL_REVIEW.md`.
+- [x] Implement any additional high-confidence wins and validate them with `eval.py test|benchmark` on `helion`.
+- [x] Re-run the full all-kernels benchmark and record the best verified results.
+
+## Online Audit Review
+
+- Cross-checked the local kernels against current public submissions and upstream Helion PR descriptions for `causal_conv1d`, `gated_deltanet_chunk_fwd_h`, `gated_deltanet_chunk_fwd_o`, and `gated_deltanet_recompute_w_u`.
+- Confirmed that the main publicly repeated wins are already present locally: clamp-and-mask causal loading, fused `chunk_fwd_o` accumulation, in-kernel recurrent `chunk_fwd_h` state updates, and the direct-layout `recompute_w_u` matmul rewrite.
+- Benchmarked one remaining public `chunk_fwd_o` config family based on persistent/block-pointer scheduling and rejected it because it produced `nan`/correctness failures on all three official benchmark shapes on `helion`.
+- Tried the last plausible causal-conv micro-optimization from public code review and rejected it because it introduced an invalid CPU/GPU mixed expression during Helion tracing rather than a viable faster kernel.
