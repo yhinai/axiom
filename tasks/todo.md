@@ -4,5 +4,5 @@
 - [x] Identify optimizations that look plausibly beneficial on our H200/B200-style shapes.
 - [x] Implement the highest-confidence optimizations in the local kernels.
 - [x] Run correctness and benchmark validation for changed kernels locally and on `helion`.
-- [ ] Launch longer sweep experiments only for kernels/config spaces that still have upside.
-- [ ] Summarize adopted wins, rejected ideas, and next experiments.
+- [x] Launch longer sweep experiments only for kernels/config spaces that still have upside.
+- [x] Summarize adopted wins, rejected ideas, and next experiments.
