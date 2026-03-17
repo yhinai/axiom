@@ -8,28 +8,35 @@ import helion
 import helion.language as hl
 
 
-# Per-shape configs: map (B, T, H, K, V) to optimized helion.Config objects.
-# Autotuned config from B200 (full effort + ACF, 250 configs, min=0.0553ms, 2.4x speedup)
-_TUNED = helion.Config(block_sizes=[], indexing=['tensor_descriptor', 'pointer', 'tensor_descriptor', 'tensor_descriptor', 'tensor_descriptor', 'tensor_descriptor', 'pointer'], l2_groupings=[16], load_eviction_policies=['', 'first', '', 'first', ''], loop_orders=[[0, 1]], maxnreg=32, num_sm_multiplier=16, num_stages=1, num_warps=32, pid_type='persistent_blocked', range_flattens=[None], range_multi_buffers=[False], range_num_stages=[3], range_unroll_factors=[4], range_warp_specializes=[None])
-
 SHAPE_CONFIGS: dict[tuple, helion.Config] = {
     # Test shapes
-    (1, 64, 2, 64, 64): _TUNED,
-    (2, 128, 4, 64, 64): _TUNED,
-    (1, 256, 4, 64, 128): _TUNED,
+    (1, 64, 2, 64, 64): helion.Config(block_sizes=[64, 64], num_warps=4, num_stages=1),
+    (2, 128, 4, 64, 64): helion.Config(block_sizes=[64, 64], num_warps=4, num_stages=1),
+    (1, 256, 4, 64, 128): helion.Config(block_sizes=[64, 64], num_warps=4, num_stages=2),
     # Benchmark shapes
-    (1, 64, 1, 64, 64): _TUNED,
-    (2, 512, 3, 64, 64): _TUNED,
-    (2, 1024, 3, 64, 64): _TUNED,
-    (3, 1024, 4, 100, 100): _TUNED,
-    (4, 1024, 4, 128, 128): _TUNED,
-    (2, 1536, 4, 128, 128): _TUNED,
-    (4, 2048, 8, 64, 64): _TUNED,
+    (1, 64, 1, 64, 64): helion.Config(block_sizes=[64, 64], num_warps=4, num_stages=2),
+    (2, 512, 3, 64, 64): helion.Config(block_sizes=[64, 64], num_warps=8, num_stages=2),
+    (2, 1024, 3, 64, 64): helion.Config(block_sizes=[64, 64], num_warps=8, num_stages=3),
+    (3, 1024, 4, 100, 100): helion.Config(block_sizes=[64, 64], num_warps=8, num_stages=3),
+    (4, 1024, 4, 128, 128): helion.Config(block_sizes=[64, 64], num_warps=8, num_stages=3),
+    (2, 1536, 4, 128, 128): helion.Config(block_sizes=[64, 64], num_warps=8, num_stages=3),
+    (4, 2048, 8, 64, 64): helion.Config(block_sizes=[64, 64], num_warps=8, num_stages=3),
 }
 
 
+def _default_config(shape: tuple[int, int, int, int, int]) -> helion.Config:
+    _, T, _, K, V = shape
+    large_d = max(K, V) > 64
+    long_t = T >= 1024
+    return helion.Config(
+        block_sizes=[64, 64],
+        num_warps=8 if T >= 512 else 4,
+        num_stages=3 if large_d or long_t else 2,
+    )
+
+
 def _make_kernel(config: helion.Config):
-    @helion.kernel(static_shapes=True, dot_precision="ieee", config=config)
+    @helion.kernel(static_shapes=True, config=config)
     def kernel(
         k: torch.Tensor,     # [B, T, H, K]
         v: torch.Tensor,     # [B, T, H, V]
@@ -43,34 +50,32 @@ def _make_kernel(config: helion.Config):
         K = hl.specialize(K)
         V = hl.specialize(V)
 
+        acc_dtype = torch.float32
         w_out = torch.empty_like(k)
         u_out = torch.empty_like(v)
+        block_k = hl.register_block_size(K)
+        block_v = hl.register_block_size(V)
 
-        BH = B * H
-        for flat_bh, rt in hl.tile([BH, T], block_size=[1, C]):
-            b_idx = flat_bh.begin // H
-            h_idx = flat_bh.begin % H
+        for tile_b, tile_t, tile_h in hl.tile([B, T, H], block_size=[1, C, 1]):
+            b_idx = tile_b.id
+            h_idx = tile_h.id
+            a_chunk = A[b_idx, tile_t, h_idx, :].to(acc_dtype)
+            beta_vals = beta[b_idx, tile_t, h_idx].to(acc_dtype)[:, None]
+            gate_vals = beta_vals * torch.exp(g[b_idx, tile_t, h_idx].to(acc_dtype))[:, None]
 
-            # Compute w = A @ (k * beta * exp(g)) and u = A @ (v * beta) via matmul
-            # A is [C, C] (lower triangular), k_chunk is [C, K], v_chunk is [C, V]
+            for tile_k in hl.tile(K, block_size=block_k):
+                w_out[b_idx, tile_t, h_idx, tile_k] = hl.dot(
+                    a_chunk,
+                    k[b_idx, tile_t, h_idx, tile_k].to(acc_dtype) * gate_vals,
+                    out_dtype=acc_dtype,
+                ).to(k.dtype)
 
-            # Prepare scaled inputs for this chunk
-            beta_vals = beta[b_idx, rt, h_idx].to(torch.float32)       # [C]
-            g_vals = g[b_idx, rt, h_idx].to(torch.float32)             # [C]
-            k_chunk = k[b_idx, rt, h_idx, :].to(torch.float32)         # [C, K]
-            v_chunk = v[b_idx, rt, h_idx, :].to(torch.float32)         # [C, V]
-            A_chunk = A[b_idx, rt, h_idx, :].to(torch.float32)         # [C, C]
-
-            # Scale k and v by beta (and exp(g) for k)
-            k_scaled = k_chunk * (beta_vals * torch.exp(g_vals))[:, None]  # [C, K]
-            v_scaled = v_chunk * beta_vals[:, None]                         # [C, V]
-
-            # w = A @ k_scaled, u = A @ v_scaled
-            w_result = hl.dot(A_chunk, k_scaled, out_dtype=torch.float32)
-            u_result = hl.dot(A_chunk, v_scaled, out_dtype=torch.float32)
-
-            w_out[b_idx, rt, h_idx, :] = w_result.to(k.dtype)
-            u_out[b_idx, rt, h_idx, :] = u_result.to(v.dtype)
+            for tile_v in hl.tile(V, block_size=block_v):
+                u_out[b_idx, tile_t, h_idx, tile_v] = hl.dot(
+                    a_chunk,
+                    v[b_idx, tile_t, h_idx, tile_v].to(acc_dtype) * beta_vals,
+                    out_dtype=acc_dtype,
+                ).to(v.dtype)
 
         return w_out, u_out
 
@@ -84,5 +89,9 @@ def custom_kernel(data: input_t) -> output_t:
     k, v, beta, A, g = data
     B, T, H, K = k.shape
     V = v.shape[-1]
-    kernel = _KERNELS[(B, T, H, K, V)]
+    shape = (B, T, H, K, V)
+    kernel = _KERNELS.get(shape)
+    if kernel is None:
+        kernel = _make_kernel(_default_config(shape))
+        _KERNELS[shape] = kernel
     return kernel(k, v, beta, A, g)
