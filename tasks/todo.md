@@ -1,8 +1,8 @@
-- [ ] Collect the public non-FP8 Helion submission files listed by the user into a single local folder.
-- [ ] Record source URLs and any fetch limitations for repos, PRs, or missing files.
-- [ ] Compare each external kernel against the current local `submission.py` implementations.
-- [ ] Identify optimizations that look plausibly beneficial on our H200/B200-style shapes.
-- [ ] Implement the highest-confidence optimizations in the local kernels.
-- [ ] Run correctness and benchmark validation for changed kernels locally and on `helion`.
+- [x] Collect the public non-FP8 Helion submission files listed by the user into a single local folder.
+- [x] Record source URLs and any fetch limitations for repos, PRs, or missing files.
+- [x] Compare each external kernel against the current local `submission.py` implementations.
+- [x] Identify optimizations that look plausibly beneficial on our H200/B200-style shapes.
+- [x] Implement the highest-confidence optimizations in the local kernels.
+- [x] Run correctness and benchmark validation for changed kernels locally and on `helion`.
 - [ ] Launch longer sweep experiments only for kernels/config spaces that still have upside.
 - [ ] Summarize adopted wins, rejected ideas, and next experiments.
