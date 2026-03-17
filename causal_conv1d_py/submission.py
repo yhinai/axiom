@@ -8,9 +8,9 @@ import helion
 import helion.language as hl
 
 
-# Memory-bound elementwise kernel. Simplified configs to avoid KernelBot compile timeout.
-# Key: larger S block (4096) + num_warps=4 + num_stages=3 (safe for KernelBot)
-_BENCH = helion.Config(block_sizes=[1, 4096], num_warps=4, num_stages=3, l2_groupings=[8], loop_orders=[[0, 2, 1]])
+# Memory-bound elementwise kernel. H200 benchmarking favored smaller S tiles with
+# lower warp counts on the official benchmark shapes.
+_BENCH = helion.Config(block_sizes=[1, 512], num_warps=2, num_stages=1)
 _DEFAULT = helion.Config(block_sizes=[1, 256], num_warps=4, num_stages=1)
 
 SHAPE_CONFIGS: dict[tuple, helion.Config] = {
@@ -46,9 +46,12 @@ def _make_kernel(config: helion.Config):
             acc = hl.zeros([rd, rs], dtype=torch.float32)
             for j in range(W):
                 src_idx = rs.index + j - (W - 1)
-                x_val = hl.load(x, [bi, rd, src_idx], extra_mask=src_idx >= 0)
-                acc = acc + x_val * w[rd, j][:, None]
-            acc = acc + b[rd][:, None]
+                safe_idx = src_idx.clamp(min=0)
+                x_val = hl.load(x, [bi, rd, safe_idx]).to(torch.float32)
+                valid = (src_idx >= 0).to(torch.float32)
+                coeff = w[rd, j].to(torch.float32)
+                acc = acc + x_val * coeff[:, None] * valid[None, :]
+            acc = acc + b[rd].to(torch.float32)[:, None]
             y[rb, rd, rs] = acc[None, :, :]
 
         return y
