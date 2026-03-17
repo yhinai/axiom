@@ -7,6 +7,12 @@ This report breaks the two biggest wins in this repo into cumulative optimizatio
 
 It builds on [PRESENTATION_BASELINE_VS_OPTIMIZED.md](PRESENTATION_BASELINE_VS_OPTIMIZED.md), but instead of comparing only the first and last versions, it measures the intermediate stages that lead from the upstream reference kernel to the current implementation in this repo.
 
+For presentation use, the main tables below follow a stricter rule:
+
+- every visible optimization level must deliver at least about a `2x` incremental gain,
+- smaller improvements are merged into the nearest larger phase,
+- the fine-grained measured micro-steps are still documented later in the report for completeness.
+
 ## Methodology
 
 - Baseline source: the current upstream `submission.py` under [`gpu-mode/reference-kernels/main/problems/helion`](https://github.com/gpu-mode/reference-kernels/tree/main/problems/helion).
@@ -48,7 +54,16 @@ The causal conv kernel does not get fast by adding more math tricks. It gets fas
 
 The biggest step is not arithmetic cleanup. It is the transition from the baseline launch/config regime to a config that matches the real benchmark shapes.
 
-### Stage Table
+### Presentation Ladder
+
+Because the measured intermediate steps below `2x` were small, they are merged into one presentation phase.
+
+| Level | What changed | Bench 0 min | Bench 1 min | Bench 2 min | Geomean min | Incremental speedup | Cumulative speedup |
+|---|---|---:|---:|---:|---:|---:|---:|
+| 0 | Upstream baseline | `249.4 us` | `411.8 us` | `816.3 us` | `437.7 us` | `1.00x` | `1.00x` |
+| 1 | Merge all meaningful optimizations: remove padded wrapper path, move causality into the kernel, retune long-`S` launch geometry, then harden final split configs | `9.5 us` | `14.1 us` | `25.5 us` | `15.1 us` | `29.06x` | `29.06x` |
+
+### Fine-Grained Measured Stages
 
 | Stage | What changed | Bench 0 min | Bench 1 min | Bench 2 min | Geomean min | Incremental speedup | Cumulative speedup |
 |---|---|---:|---:|---:|---:|---:|---:|
@@ -171,6 +186,15 @@ Measured result:
 - `1.12x` incremental geomean speedup over stage 3.
 - `29.06x` cumulative geomean speedup over the upstream baseline.
 
+### Recommended Slide Framing
+
+For presentation, `causal_conv1d_py` should be shown as one major optimization phase rather than four separate stages:
+
+1. Baseline: padded wrapper path plus tiny placeholder launch geometry.
+2. Final optimized kernel: direct dispatch on the unpadded tensor, in-kernel causal masking, and benchmark-shaped `S` tiling.
+
+That framing is faithful to the data because the only truly large gain came from combining the kernel-side cleanup with the launch-geometry retune.
+
 ### Final Kernel Anatomy
 
 The current causal conv kernel is fast because it combines four ideas cleanly:
@@ -191,7 +215,17 @@ The recompute kernel gets faster in two large jumps:
 
 After that, the remaining gains come from making the matmul version friendlier to the compiler and to the GPU register/cache hierarchy.
 
-### Stage Table
+### Presentation Ladder
+
+The final micro-step from the register-tiled matmul to the exact repo submission is effectively tied on H200, so it is merged into the last major phase.
+
+| Level | What changed | Bench 0 min | Bench 1 min | Bench 2 min | Geomean min | Incremental speedup | Cumulative speedup |
+|---|---|---:|---:|---:|---:|---:|---:|
+| 0 | Upstream baseline | `368.8 us` | `359.6 us` | `359.1 us` | `362.5 us` | `1.00x` | `1.00x` |
+| 1 | Remove reverse duplicate pass and final averaging | `83.0 us` | `91.7 us` | `91.3 us` | `88.6 us` | `4.09x` | `4.09x` |
+| 2 | Merge the matmul rewrite path: direct chunk matmuls, register tiling, and final per-shape submission hardening | `5.6 us` | `6.3 us` | `7.0 us` | `6.3 us` | `14.12x` | `57.77x` |
+
+### Fine-Grained Measured Stages
 
 | Stage | What changed | Bench 0 min | Bench 1 min | Bench 2 min | Geomean min | Incremental speedup | Cumulative speedup |
 |---|---|---:|---:|---:|---:|---:|---:|
@@ -330,6 +364,15 @@ Interpretation:
 - The optimization story effectively stops at stage 3.
 - Stage 4 should be presented as "final submitted kernel, performance tied with stage 3 on H200" rather than as an additional optimization win.
 
+### Recommended Slide Framing
+
+For presentation, `gated_deltanet_recompute_w_u_py` works best as two major optimization phases:
+
+1. Delete duplicate work.
+2. Convert the kernel into a true chunk-local matmul implementation and harden that path for submission.
+
+That gives a clean ladder where every shown level clears the `2x` threshold.
+
 ### Final Kernel Anatomy
 
 The current recompute kernel is fast because it combines five ideas:
@@ -366,7 +409,8 @@ If this needs to fit into a short talk, the cleanest framing is:
 4. Tune launch geometry and shape-specific configs.
 5. Land the submission-safe final kernel.
 
-That framing matches both kernels, even though the exact weights differ:
+That framing matches both kernels, but the visible slide levels should be grouped differently:
 
-- `causal_conv1d_py` is primarily a memory-traffic and launch-geometry story.
-- `gated_deltanet_recompute_w_u_py` is primarily an algorithm-shape and matmul-mapping story.
+- `causal_conv1d_py` is best shown as one dominant optimization jump.
+- `gated_deltanet_recompute_w_u_py` is best shown as two dominant jumps.
+- The smaller sub-`2x` steps should be speaker notes, not primary ladder rows.
