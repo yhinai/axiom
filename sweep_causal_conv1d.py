@@ -42,33 +42,51 @@ class SweepResult:
 
 
 def make_kernel(config: helion.Config, use_clamp: bool):
-    @helion.kernel(static_shapes=True, config=config)
-    def kernel(x: torch.Tensor, w: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
-        B = x.size(0)
-        D = x.size(1)
-        S = x.size(2)
-        W = hl.specialize(w.size(1))
+    if use_clamp:
+        @helion.kernel(static_shapes=True, config=config)
+        def kernel(x: torch.Tensor, w: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+            B = x.size(0)
+            D = x.size(1)
+            S = x.size(2)
+            W = hl.specialize(w.size(1))
 
-        y = torch.empty(B, D, S, dtype=x.dtype, device=x.device)
+            y = torch.empty(B, D, S, dtype=x.dtype, device=x.device)
 
-        for rb, rd, rs in hl.tile([B, D, S], block_size=[1, None, None]):
-            bi = rb.begin
-            acc = hl.zeros([rd, rs], dtype=torch.float32)
-            for j in range(W):
-                idx = rs.index + j - (W - 1)
-                if use_clamp:
+            for rb, rd, rs in hl.tile([B, D, S], block_size=[1, None, None]):
+                bi = rb.begin
+                acc = hl.zeros([rd, rs], dtype=torch.float32)
+                for j in range(W):
+                    idx = rs.index + j - (W - 1)
                     safe_idx = idx.clamp(min=0)
                     x_val = hl.load(x, [bi, rd, safe_idx]).to(torch.float32)
                     valid = (idx >= 0).to(torch.float32)
                     coeff = w[rd, j].to(torch.float32)
                     acc = acc + x_val * coeff[:, None] * valid[None, :]
-                else:
+                acc = acc + b[rd].to(torch.float32)[:, None]
+                y[rb, rd, rs] = acc[None, :, :].to(y.dtype)
+
+            return y
+    else:
+        @helion.kernel(static_shapes=True, config=config)
+        def kernel(x: torch.Tensor, w: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+            B = x.size(0)
+            D = x.size(1)
+            S = x.size(2)
+            W = hl.specialize(w.size(1))
+
+            y = torch.empty(B, D, S, dtype=x.dtype, device=x.device)
+
+            for rb, rd, rs in hl.tile([B, D, S], block_size=[1, None, None]):
+                bi = rb.begin
+                acc = hl.zeros([rd, rs], dtype=torch.float32)
+                for j in range(W):
+                    idx = rs.index + j - (W - 1)
                     x_val = hl.load(x, [bi, rd, idx], extra_mask=idx >= 0).to(torch.float32)
                     acc = acc + x_val * w[rd, j].to(torch.float32)[:, None]
-            acc = acc + b[rd].to(torch.float32)[:, None]
-            y[rb, rd, rs] = acc[None, :, :].to(y.dtype)
+                acc = acc + b[rd].to(torch.float32)[:, None]
+                y[rb, rd, rs] = acc[None, :, :].to(y.dtype)
 
-        return y
+            return y
 
     return kernel
 
