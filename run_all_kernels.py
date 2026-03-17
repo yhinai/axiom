@@ -43,6 +43,10 @@ class KernelSummary:
     return_code: int
 
 
+def ms_to_us_text(value_ms: float) -> str:
+    return f"{value_ms * 1000:.1f} us"
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run all Helion kernels and report the fastest benchmark per kernel."
@@ -85,7 +89,29 @@ def run_kernel(repo_root: Path, python_exe: str, mode: str, kernel_dir: str) -> 
     print(f"\n=== {kernel_dir} ===")
     for raw_line in process.stdout:
         line = raw_line.rstrip("\n")
-        print(line)
+
+        benchmark_match = BENCHMARK_RE.match(line)
+        if benchmark_match:
+            result = BenchmarkResult(
+                mean_ms=float(benchmark_match.group("mean")),
+                min_ms=float(benchmark_match.group("min")),
+                max_ms=float(benchmark_match.group("max")),
+                spec=benchmark_match.group("spec"),
+            )
+            benchmarks.append(result)
+            print(
+                re.sub(
+                    r"(?P<mean>[0-9.]+)\s+ms\s+\(min=(?P<min>[0-9.]+),\s+max=(?P<max>[0-9.]+)\)",
+                    (
+                        f"{ms_to_us_text(result.mean_ms)} "
+                        f"(min={ms_to_us_text(result.min_ms)}, max={ms_to_us_text(result.max_ms)})"
+                    ),
+                    line,
+                    count=1,
+                )
+            )
+        else:
+            print(line)
 
         test_match = TEST_RE.match(line)
         if test_match and test_match.group("status") == "FAIL":
@@ -96,17 +122,6 @@ def run_kernel(repo_root: Path, python_exe: str, mode: str, kernel_dir: str) -> 
 
         if "FAIL (correctness)" in line:
             benchmark_failures += 1
-
-        benchmark_match = BENCHMARK_RE.match(line)
-        if benchmark_match:
-            benchmarks.append(
-                BenchmarkResult(
-                    mean_ms=float(benchmark_match.group("mean")),
-                    min_ms=float(benchmark_match.group("min")),
-                    max_ms=float(benchmark_match.group("max")),
-                    spec=benchmark_match.group("spec"),
-                )
-            )
 
     return_code = process.wait()
     fastest = min(benchmarks, key=lambda result: result.min_ms) if benchmarks else None
@@ -132,8 +147,9 @@ def print_summary(summaries: list[KernelSummary], mode: str) -> None:
             continue
 
         print(
-            f"{summary.name}: {status} fastest min={summary.fastest.min_ms:.4f} ms "
-            f"(mean={summary.fastest.mean_ms:.4f} ms, max={summary.fastest.max_ms:.4f} ms) "
+            f"{summary.name}: {status} fastest min={ms_to_us_text(summary.fastest.min_ms)} "
+            f"(mean={ms_to_us_text(summary.fastest.mean_ms)}, "
+            f"max={ms_to_us_text(summary.fastest.max_ms)}) "
             f"for {summary.fastest.spec}"
         )
 
