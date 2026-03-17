@@ -28,3 +28,16 @@
 - Confirmed that the main publicly repeated wins are already present locally: clamp-and-mask causal loading, fused `chunk_fwd_o` accumulation, in-kernel recurrent `chunk_fwd_h` state updates, and the direct-layout `recompute_w_u` matmul rewrite.
 - Benchmarked one remaining public `chunk_fwd_o` config family based on persistent/block-pointer scheduling and rejected it because it produced `nan`/correctness failures on all three official benchmark shapes on `helion`.
 - Tried the last plausible causal-conv micro-optimization from public code review and rejected it because it introduced an invalid CPU/GPU mixed expression during Helion tracing rather than a viable faster kernel.
+
+## Codex ECC Adaptation
+
+- [x] Inspect the current project-level Codex guidance and note Claude-only behaviors that should not survive the migration.
+- [x] Review the upstream `everything-claude-code` Codex support files and extract the parts that translate cleanly to this repo.
+- [ ] Rewrite the local instruction stack for Codex-native planning, verification, review, and project memory.
+- [ ] Add project-local `.codex` baseline files tuned to Helion kernel work instead of generic web-app defaults.
+- [ ] Add the missing `tasks/lessons.md` scaffold referenced by the project rules.
+- [ ] Review the final guidance for contradictions with current project constraints and document the result below.
+
+## Codex ECC Adaptation Review
+
+- Pending implementation.
