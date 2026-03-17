@@ -2,7 +2,6 @@
 # Sync local code to remote B200 server and run a command
 # Usage: ./remote_run.sh <command>
 # Examples:
-#   ./remote_run.sh "python3 eval.py both fp8_quant_py/"
 #   ./remote_run.sh "python3 eval.py benchmark causal_conv1d_py/"
 #   ./remote_run.sh "ENABLE_TILE=1 HELION_BACKEND=tileir python3 eval.py both gated_deltanet_chunk_fwd_o_py/"
 #   ./remote_run.sh "HELION_AUTOTUNE_EFFORT=full python3 eval.py both gated_deltanet_recompute_w_u_py/"
@@ -23,7 +22,7 @@ fi
 echo "=== Syncing local -> remote ==="
 
 # Sync all kernel submission files + eval/utils
-KERNEL_DIRS="fp8_quant_py causal_conv1d_py gated_deltanet_chunk_fwd_h_py gated_deltanet_chunk_fwd_o_py gated_deltanet_recompute_w_u_py"
+KERNEL_DIRS="causal_conv1d_py gated_deltanet_chunk_fwd_h_py gated_deltanet_chunk_fwd_o_py gated_deltanet_recompute_w_u_py"
 
 for dir in $KERNEL_DIRS; do
     if [ -f "$LOCAL_DIR/$dir/submission.py" ]; then
@@ -33,7 +32,7 @@ for dir in $KERNEL_DIRS; do
 done
 
 # Sync eval.py, utils.py, and tuning scripts
-for f in eval.py utils.py tune_fp8.py tune_fp8_v2.py tune_fwd_h_v2.py tune_fwd_h_helion.py autotune_deltanet.py autotune_pershape.py; do
+for f in eval.py utils.py tune_fp8_v2.py tune_fwd_h_v2.py tune_fwd_h_helion.py autotune_deltanet.py autotune_pershape.py; do
     if [ -f "$LOCAL_DIR/$f" ]; then
         sshpass -p "$REMOTE_PASS" scp -o StrictHostKeyChecking=no "$LOCAL_DIR/$f" "$REMOTE_HOST:$REMOTE_DIR/$f" 2>/dev/null
         echo "  Synced $f"

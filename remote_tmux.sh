@@ -2,7 +2,6 @@
 # Sync local code and run command in a tmux session on remote B200
 # Usage: ./remote_tmux.sh <session_name> <command>
 # Examples:
-#   ./remote_tmux.sh autotune "HELION_AUTOTUNE_EFFORT=full python eval.py both fp8_quant_py/"
 #   ./remote_tmux.sh tileir "ENABLE_TILE=1 HELION_BACKEND=tileir python eval.py both gated_deltanet_chunk_fwd_o_py/"
 #
 # To check output: ./remote_tmux.sh <session_name> --attach
@@ -40,7 +39,7 @@ fi
 
 # Sync files
 echo "=== Syncing local -> remote ==="
-KERNEL_DIRS="fp8_quant_py causal_conv1d_py gated_deltanet_chunk_fwd_h_py gated_deltanet_chunk_fwd_o_py gated_deltanet_recompute_w_u_py"
+KERNEL_DIRS="causal_conv1d_py gated_deltanet_chunk_fwd_h_py gated_deltanet_chunk_fwd_o_py gated_deltanet_recompute_w_u_py"
 for dir in $KERNEL_DIRS; do
     if [ -f "$LOCAL_DIR/$dir/submission.py" ]; then
         eval $SCP_CMD "$LOCAL_DIR/$dir/submission.py" "$REMOTE_HOST:$REMOTE_DIR/$dir/submission.py" 2>/dev/null

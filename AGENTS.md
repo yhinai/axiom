@@ -1,4 +1,4 @@
-# Project Rules for Claude Code
+# Project Rules for Codex
 
 ## Auto-Commit and Push Rule
 
