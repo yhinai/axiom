@@ -27,6 +27,11 @@
   - previous repo kernel: `0.0085 / 0.0096 / 0.0106 ms`
   - `num_warps=4`: `0.0052 / 0.0062 / 0.0072 ms` min times
   - correctness: passed all test shapes
+- `gated_deltanet_recompute_w_u_py`: the strongest external direct-layout rewrite from `ankitmaloo` beat the current repo kernel under the official harness and has now been promoted.
+- H200 validation on `helion` after promotion:
+  - previous repo kernel: `0.0080 / 0.0095 / 0.0157 ms`
+  - promoted kernel: `0.0056 / 0.0063 / 0.0069 ms` min times
+  - correctness: passed all test shapes
 
 ## Rejected in first pass
 
@@ -79,16 +84,18 @@
 - The external field splits into two families:
   - direct matmul kernels like our current code, `ramizik`, and `brandonin`
   - tiled K/V-loop kernels like `ankitmaloo`
-- The direct-matmul family is still the stronger fit for our current kernel shape and benchmark profile.
+- The direct-layout matmul family turned out to be the strongest fit for our current kernel shape and benchmark profile.
 - The `exp2` rewrite alone was not a win on H200.
-- Targeted H200 sweeps found some synthetic winners, but none of the top candidates beat the current kernel under the official `eval.py benchmark` harness.
-- Most likely remaining upside is config-space rather than algebra:
-  - `persistent_blocked` vs `persistent_interleaved`
-  - smaller warp counts than our current config
-  - mixed pointer/tensor-descriptor indexing
+- The promoted rewrite wins by using the simpler direct-layout matmul path instead of the heavier persistent/tensor-descriptor approach that looked better synthetically.
+- The biggest remaining upside, if any, is now likely small config refinement around the promoted direct-layout kernel rather than a fresh algebraic rewrite.
+
+## Rejected in second pass
+
+- `gated_deltanet_chunk_fwd_h_py`: the external `ramizik` and `desu` variants benchmarked materially slower than the current repo kernel on H200.
+- `gated_deltanet_chunk_fwd_h_py`: the `brandonin` variant could not be compared cleanly on H200 because it still depended on unsupported `range_warp_specializes` settings and external ACF files.
 
 ## Best next experiments
 
-1. `gated_deltanet_recompute_w_u_py` deeper multi-shape search around flat/persistent hybrids if we want to keep pushing that kernel.
-2. `gated_deltanet_chunk_fwd_h_py` only if we expand the search space beyond the safe config neighborhood already tested.
+1. `gated_deltanet_chunk_fwd_h_py` only if we expand the search space beyond the safe config neighborhood already tested.
+2. Wider config sweeps around the promoted direct-layout `gated_deltanet_recompute_w_u_py` kernel if we want to chase the last few tenths of a microsecond.
 3. Broader multi-shape validation on a B200 box, because the H200-compatible remote copies still need `range_warp_specializes` stripped.
