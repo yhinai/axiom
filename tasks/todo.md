@@ -29,6 +29,13 @@
 - Benchmarked one remaining public `chunk_fwd_o` config family based on persistent/block-pointer scheduling and rejected it because it produced `nan`/correctness failures on all three official benchmark shapes on `helion`.
 - Tried the last plausible causal-conv micro-optimization from public code review and rejected it because it introduced an invalid CPU/GPU mixed expression during Helion tracing rather than a viable faster kernel.
 
+## Optimization Ladder
+
+- [ ] Build cumulative optimization ladders for `causal_conv1d_py` and `gated_deltanet_recompute_w_u_py` from upstream baseline to current final kernel.
+- [ ] Benchmark each ladder step on `helion` with the official `eval.py benchmark` harness.
+- [ ] Compute per-step latency deltas and cumulative speedups for presentation use.
+- [ ] Write a presentation-grade markdown report explaining each optimization step and its measured gain.
+
 ## Codex ECC Adaptation
 
 - [x] Inspect the current project-level Codex guidance and note Claude-only behaviors that should not survive the migration.
