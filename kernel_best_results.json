@@ -1,0 +1,26 @@
+{
+  "causal_conv1d_py": {
+    "max_ms": 0.0104,
+    "mean_ms": 0.0095,
+    "min_ms": 0.0094,
+    "spec": "{'B': 1, 'D': 1536, 'S': 2048, 'W': 4, 'seed': 2146}"
+  },
+  "gated_deltanet_chunk_fwd_h_py": {
+    "max_ms": 0.0035,
+    "mean_ms": 0.0027,
+    "min_ms": 0.0026,
+    "spec": "{'B': 1, 'T': 64, 'H': 1, 'K': 64, 'V': 64, 'seed': 31232}"
+  },
+  "gated_deltanet_chunk_fwd_o_py": {
+    "max_ms": 0.006,
+    "mean_ms": 0.0053,
+    "min_ms": 0.0052,
+    "spec": "{'B': 1, 'T': 64, 'H': 1, 'K': 64, 'V': 64, 'seed': 31232}"
+  },
+  "gated_deltanet_recompute_w_u_py": {
+    "max_ms": 0.0064,
+    "mean_ms": 0.0057,
+    "min_ms": 0.0056,
+    "spec": "{'B': 1, 'T': 64, 'H': 1, 'K': 64, 'V': 64, 'seed': 31232}"
+  }
+}
