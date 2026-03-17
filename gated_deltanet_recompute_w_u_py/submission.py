@@ -23,18 +23,6 @@ SHAPE_CONFIGS: dict[tuple, helion.Config] = {
     (4, 2048, 8, 64, 64): helion.Config(block_sizes=[64, 64], num_warps=8, num_stages=3),
 }
 
-
-def _default_config(shape: tuple[int, int, int, int, int]) -> helion.Config:
-    _, T, _, K, V = shape
-    large_d = max(K, V) > 64
-    long_t = T >= 1024
-    return helion.Config(
-        block_sizes=[64, 64],
-        num_warps=8 if T >= 512 else 4,
-        num_stages=3 if large_d or long_t else 2,
-    )
-
-
 def _make_kernel(config: helion.Config):
     @helion.kernel(static_shapes=True, config=config)
     def kernel(
@@ -89,9 +77,4 @@ def custom_kernel(data: input_t) -> output_t:
     k, v, beta, A, g = data
     B, T, H, K = k.shape
     V = v.shape[-1]
-    shape = (B, T, H, K, V)
-    kernel = _KERNELS.get(shape)
-    if kernel is None:
-        kernel = _make_kernel(_default_config(shape))
-        _KERNELS[shape] = kernel
-    return kernel(k, v, beta, A, g)
+    return _KERNELS[(B, T, H, K, V)](k, v, beta, A, g)
