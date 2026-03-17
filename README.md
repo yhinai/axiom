@@ -2,6 +2,11 @@
 
 Optimized GPU kernels for the Helion DSL hackathon targeting NVIDIA B200 (Blackwell) GPUs.
 
+## Presentation Docs
+
+- [Optimization Ladder Report](PRESENTATION_OPTIMIZATION_LADDER.md) - cumulative step-by-step optimization layers for `causal_conv1d_py` and `gated_deltanet_recompute_w_u_py`, measured on `helion`.
+- [Baseline vs Final Report](PRESENTATION_BASELINE_VS_OPTIMIZED.md) - direct upstream-vs-current comparison for the final kernels.
+
 ## Results
 
 | Kernel | Geomean | Rank | Key Speedup |
