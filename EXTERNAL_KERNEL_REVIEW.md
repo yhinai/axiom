@@ -8,6 +8,14 @@
 
 ## High-confidence results
 
+- `causal_conv1d_py`: a targeted sweep around the `rajk97`-style low-warp benchmark neighborhood found a better benchmark path.
+- Change:
+  - switched the benchmark config to `block_sizes=[1, 512], num_warps=2, num_stages=1`
+  - switched the kernel body to clamp-and-mask boundary handling
+- H200 validation on `helion`:
+  - previous repo kernel: `0.0103 / 0.0149 / 0.0266 ms` min times
+  - promoted kernel: `0.0094 / 0.0142 / 0.0255 ms` min times
+  - correctness: passed all test shapes
 - `gated_deltanet_chunk_fwd_o_py`: adopted the fused-accumulator pattern seen in the strongest external variants, especially `ramizik`.
 - Change: compute the local `hl.dot(qk, v)` result into an accumulator and fuse the inter-chunk `hl.dot(q_g, h, acc=acc)` into the same accumulator.
 - H200 validation on `helion`:
@@ -50,6 +58,7 @@
   - number of stages
   - pointer vs tensor-descriptor mixes
   - possible ACF-backed configs on B200
+- Targeted H200 sweeps did not produce an official-eval win over the current kernel.
 
 ### gated_deltanet_chunk_fwd_o_py
 
@@ -72,6 +81,7 @@
   - tiled K/V-loop kernels like `ankitmaloo`
 - The direct-matmul family is still the stronger fit for our current kernel shape and benchmark profile.
 - The `exp2` rewrite alone was not a win on H200.
+- Targeted H200 sweeps found some synthetic winners, but none of the top candidates beat the current kernel under the official `eval.py benchmark` harness.
 - Most likely remaining upside is config-space rather than algebra:
   - `persistent_blocked` vs `persistent_interleaved`
   - smaller warp counts than our current config
@@ -79,6 +89,6 @@
 
 ## Best next experiments
 
-1. `gated_deltanet_recompute_w_u_py` config sweep around lower-warps persistent schedules.
-2. `causal_conv1d_py` benchmark-shape-only config sweep using the `rajk97`-style search neighborhood.
-3. `gated_deltanet_chunk_fwd_h_py` V-tile and stage sweep only if the other two kernels plateau.
+1. `gated_deltanet_recompute_w_u_py` deeper multi-shape search around flat/persistent hybrids if we want to keep pushing that kernel.
+2. `gated_deltanet_chunk_fwd_h_py` only if we expand the search space beyond the safe config neighborhood already tested.
+3. Broader multi-shape validation on a B200 box, because the H200-compatible remote copies still need `range_warp_specializes` stripped.
