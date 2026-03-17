@@ -6,13 +6,18 @@
 - Included direct code links from sources such as `DESU-CLUB`, `brandonin`, `Mistobaan/reference-kernels`, `svdrecbd`, `KG2468`, `ramizik`, `Ayush10`, `rajk97`, `andrewbriand`, `dpiresearch`, `InServiceOfX`, `gtcha2`, `gretchenboria`, and `rdspring1`.
 - Some user-provided sources were only repo roots or PR pages without a direct `submission.py` path in the prompt, so they were not materialized in this first pass.
 
-## High-confidence result
+## High-confidence results
 
 - `gated_deltanet_chunk_fwd_o_py`: adopted the fused-accumulator pattern seen in the strongest external variants, especially `ramizik`.
 - Change: compute the local `hl.dot(qk, v)` result into an accumulator and fuse the inter-chunk `hl.dot(q_g, h, acc=acc)` into the same accumulator.
 - H200 validation on `helion`:
   - baseline: `0.0086 / 0.0097 / 0.0106 ms`
   - fused-acc variant: `0.0085 / 0.0096 / 0.0106 ms`
+  - correctness: passed all test shapes
+- `gated_deltanet_chunk_fwd_o_py`: a follow-up config sweep on the fused kernel found `num_warps=4` to be a clear winner on the H200.
+- H200 validation on `helion` after promoting `num_warps=4`:
+  - previous repo kernel: `0.0085 / 0.0096 / 0.0106 ms`
+  - `num_warps=4`: `0.0052 / 0.0062 / 0.0072 ms` min times
   - correctness: passed all test shapes
 
 ## Rejected in first pass
@@ -54,10 +59,11 @@
   - fused `acc=` accumulation for local + global outputs
   - more aggressive persistent scheduling in some submissions
 - We adopted the fused accumulation because it was low risk and benchmark-positive on the H200.
+- We then used an H200-safe sweep harness to test the post-fusion config neighborhood and found that `num_warps=4` was dramatically better than the previous `num_warps=16` setting on the official benchmark shapes.
 - Next upside is likely in config sweeps:
   - pointer-only indexing
   - persistent/interleaved pid types
-  - lower-stage, higher-warp variants for benchmark shapes
+  - broader multi-shape sweeps once the 4-warp baseline is locked in
 
 ### gated_deltanet_recompute_w_u_py
 
@@ -73,6 +79,6 @@
 
 ## Best next experiments
 
-1. `gated_deltanet_chunk_fwd_o_py` config sweep around the new fused-accumulator kernel.
-2. `gated_deltanet_recompute_w_u_py` config sweep around lower-warps persistent schedules.
-3. `causal_conv1d_py` benchmark-shape-only config sweep using the `rajk97`-style search neighborhood.
+1. `gated_deltanet_recompute_w_u_py` config sweep around lower-warps persistent schedules.
+2. `causal_conv1d_py` benchmark-shape-only config sweep using the `rajk97`-style search neighborhood.
+3. `gated_deltanet_chunk_fwd_h_py` V-tile and stage sweep only if the other two kernels plateau.
