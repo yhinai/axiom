@@ -8,38 +8,47 @@
 2. Commit with a clear message describing what changed: `git commit -m "description of change"`
 3. Push to `main`: `git push origin main`
 
-This applies to EVERY change — no exceptions. Do not batch changes. Commit and push immediately after each logical change.
+This applies to EVERY change. Commit and push immediately after each logical change.
 
 - Always push to `main`
 - Never force push
-- Use descriptive commit messages that explain the "why"
-- If a pre-commit hook fails, fix the issue and create a NEW commit (never amend)
+- Use descriptive commit messages that explain the why
+- If a pre-commit hook fails, fix the issue and create a new commit rather than amending
 
-## Agent Team Strategy
+## Codex Operating Model
 
-Use agent teams for any task that benefits from parallel work across independent modules. Teams are enabled via `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in settings.
+- Plan before non-trivial work. Use a short explicit plan for any task with 3 or more steps, architectural risk, or broad file impact.
+- Mirror that plan in `tasks/todo.md` with checkable items before implementation starts.
+- Keep work moving locally unless parallel Codex agents are clearly helpful and ownership can stay disjoint.
+- After implementation, do a review pass focused on correctness, performance regressions, shape coverage, and missing verification.
+- Capture durable project knowledge in the existing docs structure instead of creating new top-level notes by default.
 
-### When to Use Teams
-- Multi-kernel optimization in parallel (one teammate per kernel)
-- Research + implementation in parallel (one teammate explores TileIR, another tunes configs)
-- Debugging with competing hypotheses — teammates test different theories simultaneously
-- Any task with 3+ independent subtasks that don't touch the same files
+## Parallel Work Strategy
 
-### When NOT to Use Teams
+Use Codex subagents, separate worktrees, or parallel terminals only when the task has independent modules and clear ownership boundaries.
+
+### Good Fits for Parallel Work
+
+- Multi-kernel optimization in parallel, with one worker per kernel
+- Research plus implementation, with one worker gathering evidence while another edits
+- Debugging with competing hypotheses on different kernels or scripts
+- Shared infra work split away from kernel-local tuning
+
+### Bad Fits for Parallel Work
+
 - Sequential tasks with heavy dependencies between steps
-- Changes to a single kernel's submission.py
-- Simple config tweaks or small fixes
-- Tasks where coordination overhead exceeds the benefit
+- Changes isolated to a single `submission.py`
+- Simple config tweaks or tiny fixes
+- Tasks where coordination overhead exceeds the likely speedup
 
-### Team Configuration
-- Start with **3-5 teammates** for most workflows
-- Aim for **5-6 tasks per teammate** to keep everyone productive
-- Use **Opus for the lead** (reasoning/coordination), **Opus for teammates** (focused implementation)
-- Use **delegate mode** (`Shift+Tab`) when the lead should only coordinate, not write code
+### Recommended Team Shape
+
+- Start with 2-4 workers plus a lead for most larger efforts
+- Give each worker a disjoint file or module boundary
+- Prefer read-only explorers and reviewers unless a worker owns a bounded write scope
+- If the current Codex session or policy does not allow delegation, keep the same ownership boundaries in the plan and execute sequentially
 
 ### Independent Modules
-
-Each teammate should own a separate kernel to avoid file conflicts:
 
 | Module | Directory | Notes |
 |--------|-----------|-------|
@@ -48,96 +57,83 @@ Each teammate should own a separate kernel to avoid file conflicts:
 | Chunk Fwd O | `gated_deltanet_chunk_fwd_o_py/` | Dot-heavy, tensor_descriptor, num_ctas=2 |
 | Recompute W/U | `gated_deltanet_recompute_w_u_py/` | Dot-heavy, tensor_descriptor, num_ctas=2 |
 | Leaderboard TUI | `leaderboard-tui/` | Go app for watching rankings |
-| Shared Infra | `eval.py`, `utils.py` | Test/benchmark framework |
+| Shared Infra | `eval.py`, `utils.py` | Test and benchmark framework |
 
-### Team Communication Rules
-- Use `SendMessage` (type: "message") for direct teammate communication — always refer to teammates by **name**
-- Use `SendMessage` (type: "broadcast") **only** for critical blockers affecting everyone
-- Use `TaskCreate`/`TaskUpdate`/`TaskList` for work coordination — teammates self-claim unblocked tasks
-- When a teammate finishes, they check `TaskList` for the next available task (prefer lowest ID first)
-- Mark tasks `completed` only after verification passes
+### Coordination Rules
 
-### Task Dependencies
-- Use `addBlockedBy` to express task ordering (e.g., "chunk_fwd_o depends on chunk_fwd_h being correct")
-- Teammates skip blocked tasks and pick up unblocked work
-- When a blocking task completes, dependent tasks auto-unblock
-
-### Plan Approval for Risky Work
-- For architectural changes or risky refactors, require **plan approval** before implementation
-- The teammate works in read-only mode, submits a plan, lead approves/rejects
-- Only after approval does the teammate implement
-
-### Team Quality Hooks
-- `TaskCompleted` hook: prevents marking tasks done unless tests pass
-- `TeammateIdle` hook: auto-assigns follow-up work to idle teammates
-- Every teammate must run verification before reporting completion
-
-### Shutdown Protocol
-- When all tasks are complete, the lead sends `shutdown_request` to each teammate
-- Teammates approve shutdown after confirming their work is committed
-- Lead calls `TeamDelete` to clean up team resources
+- Record active work, ownership, and blockers in `tasks/todo.md`
+- Express dependencies in the plan so blocked work is obvious
+- Finished work is not done until verification passes
+- Handoffs should include touched files, commands run, and any remaining risk
+- Before shutdown or handoff, ensure changes are committed and pushed
 
 ## Workflow Orchestration
 
-### 1. Plan Mode Default
-- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
-- If something goes sideways, STOP and re-plan immediately — don't keep pushing
-- Use plan mode for verification steps, not just building
-- Write detailed specs upfront to reduce ambiguity
+### 1. Plan First
 
-### 2. Subagent Strategy
-- Use subagents liberally to keep main context window clean
-- Offload research, exploration, and parallel analysis to subagents
-- For complex problems, throw more compute at it via subagents
-- One task per subagent for focused execution
+- For non-trivial tasks, write the plan to `tasks/todo.md` before editing code
+- If assumptions change or verification fails, stop and re-plan instead of pushing through
+- Use the plan for verification work too, not just implementation
 
-### 3. Self-Improvement Loop
-- After ANY correction from the user: update `tasks/lessons.md` with the pattern
-- Write rules for yourself that prevent the same mistake
-- Ruthlessly iterate on these lessons until mistake rate drops
-- Review lessons at session start for relevant project
+### 2. Reproducer or Test First When Practical
+
+- Prefer failing tests, minimal repros, or benchmark deltas before changing behavior
+- For kernel tuning, the repro can be an `eval.py` correctness failure, a benchmark regression, or a missing-shape dispatch gap
+- For docs or workflow changes, define the inconsistency being fixed before editing
+
+### 3. Review After Writing
+
+- Review every meaningful change for correctness, regressions, security, and missing verification
+- Style-only cleanup is lower priority than dispatch bugs, wrong shapes, invalid configs, or benchmark regressions
+- When a change is risky, compare behavior against the current `main` branch expectation
 
 ### 4. Verification Before Done
+
 - Never mark a task complete without proving it works
-- Diff behavior between main and your changes when relevant
-- Ask yourself: "Would a staff engineer approve this?"
-- Run tests, check logs, demonstrate correctness
+- Diff behavior between the old and new path when relevant
+- Ask whether the change would survive staff-level review for correctness and maintainability
 
-### 5. Demand Elegance (Balanced)
-- For non-trivial changes: pause and ask "is there a more elegant way?"
-- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
-- Skip this for simple, obvious fixes — don't over-engineer
-- Challenge your own work before presenting it
+### 5. Self-Improvement Loop
 
-### 6. Autonomous Bug Fixing
-- When given a bug report: just fix it. Don't ask for hand-holding
-- Point at logs, errors, failing tests — then resolve them
-- Zero context switching required from the user
-- Go fix failing CI tests without being told how
+- After any user correction or preventable process mistake, update `tasks/lessons.md`
+- Write short rules that would have prevented the mistake
+- Review relevant lessons at the start of related future work
+
+### 6. Demand Elegance
+
+- Prefer the simplest fix that also generalizes cleanly
+- If a solution feels hacky, pause and look for the cleaner structural change
+- Do not over-engineer obvious fixes
+
+### 7. Autonomous Bug Fixing
+
+- When given a bug report, investigate the actual failure and fix it end to end
+- Point at the reproducer, failing command, or benchmark evidence, then resolve it
+- Avoid making the user orchestrate the debugging session
 
 ## Task Management
 
-1. **Plan First**: Write plan to `tasks/todo.md` with checkable items
-2. **Verify Plan**: Check in before starting implementation
-3. **Track Progress**: Mark items complete as you go
-4. **Explain Changes**: High-level summary at each step
-5. **Document Results**: Add review section to `tasks/todo.md`
-6. **Capture Lessons**: Update `tasks/lessons.md` after corrections
+1. **Plan First**: Write the active plan to `tasks/todo.md` with checkable items.
+2. **Track Progress**: Mark items complete as you go.
+3. **Document Results**: Add a review section to `tasks/todo.md` for what changed, what passed, and what was rejected.
+4. **Capture Lessons**: Update `tasks/lessons.md` after user corrections or process misses.
+5. **Prefer Existing Docs**: Extend the current docs set before adding new top-level markdown files.
 
 ## Project Context
 
-- **Competition**: GPU MODE Helion Hackathon on NVIDIA B200 (Blackwell) GPUs
-- **Language**: Python (Helion DSL compiling to Triton/TileIR)
-- **Kernels**: 4 GPU kernels (causal_conv1d, 3x gated_deltanet)
-- **Framework**: Helion DSL (`helion.kernel`, `helion.language as hl`)
-- **Test/Bench**: `python eval.py test|benchmark|both <kernel_dir>/`
-- **Submit**: `popcorn submit submission.py --gpu B200_Nebius --leaderboard <name>`
-- **Remote Server**: `sshpass -p 'bMvoEtw1B6' ssh ubuntu@46.243.147.105`
-- **Leaderboard TUI**: `./leaderboard-tui/leaderboard-tui` (Go/Bubble Tea)
+- **Competition**: GPU MODE Helion Hackathon on NVIDIA B200 GPUs
+- **Language**: Python, with Helion DSL compiling to Triton or TileIR
+- **Kernels**: `causal_conv1d`, `gated_deltanet_chunk_fwd_h`, `gated_deltanet_chunk_fwd_o`, `gated_deltanet_recompute_w_u`
+- **Framework**: `helion.kernel`, `helion.language as hl`
+- **Test and Bench**: `python eval.py test|benchmark|both <kernel_dir>/`
+- **Submission**: `popcorn submit submission.py --gpu B200_Nebius --leaderboard <name>`
+- **Remote Server**: use the existing repo scripts and local environment; do not paste credentials into new docs or logs
+- **Leaderboard TUI**: `./leaderboard-tui/leaderboard-tui`
 
 ### Submission Pattern
 
-Every `submission.py` follows this structure:
+Every `submission.py` should follow this structure:
+
 ```python
 #!POPCORN leaderboard <kernel_name>
 #!POPCORN gpu B200_Nebius
@@ -149,36 +145,46 @@ def custom_kernel(data: input_t) -> output_t: ...
 
 ### Config Tuning
 
-- `block_sizes` — tile dimensions
-- `num_warps` — 4 (fixed for TileIR), 1-32 otherwise
-- `num_stages` — pipeline depth (1-7)
-- `indexing` — `"pointer"` (elementwise) or `"tensor_descriptor"` (dot-heavy)
-- `pid_type` — `"flat"`, `"linear"`, or `"persistent_blocked"`
-- TileIR: `ENABLE_TILE=1 HELION_BACKEND=tileir`, `num_ctas` (1-2), `occupancy` (1-8)
+- `block_sizes` control tile dimensions
+- `num_warps` is 4 for TileIR and 1-32 otherwise
+- `num_stages` controls pipeline depth
+- `indexing` should be `"pointer"` for simple elementwise kernels and `"tensor_descriptor"` for dot-heavy kernels
+- `pid_type` can be `"flat"`, `"linear"`, or `"persistent_blocked"`
+- TileIR-only knobs include `num_ctas` and `occupancy`
 
 ### Competition Rules
 
-- All configs must be **hardcoded** (no runtime autotuning on KernelBot)
-- Helion DSL >= 70% of kernel code
-- Accuracy: rtol/atol = 1e-2 (deltanet), 1e-3 (fp8), 1e-5 (conv1d)
-- Scoring: 100pts correctness + 0-1000pts performance (top 10 only)
+- All configs must be hardcoded; no runtime autotuning on KernelBot
+- Helion DSL should remain at least 70 percent of kernel code
+- Accuracy targets are `1e-2` for deltanet, `1e-3` for fp8, and `1e-5` for conv1d
+- Scoring is 100 points for correctness plus up to 1000 for performance
 
 ## Verification Standards
 
-Before marking any kernel task complete:
-- `python eval.py test <kernel_dir>/` — all test shapes pass correctness
-- `python eval.py benchmark <kernel_dir>/` — performance numbers look reasonable
-- Verify `SHAPE_CONFIGS` covers all test AND benchmark shapes from `task.yml`
-- Check that `custom_kernel` dispatches to the correct kernel for each shape
+Before marking a kernel task complete:
 
-## Leaderboard API
+- Run `python eval.py test <kernel_dir>/`
+- Run `python eval.py benchmark <kernel_dir>/`
+- Verify `SHAPE_CONFIGS` covers all test and benchmark shapes from `task.yml`
+- Check that `custom_kernel` dispatches to the correct kernel for each supported shape
+- Confirm the change does not violate the hardcoded-config competition rule
 
-- Base: `https://site--bot--dxfjds728w5v.code.run`
-- Rankings: `GET /submissions/<kernel_name>/B200_Nebius` (header: `X-Popcorn-Cli-Id`)
-- Your submissions: `GET /user/submissions`
+For shared infra changes:
+
+- Run focused verification for the affected scripts or helpers
+- Re-run the impacted kernel evaluations rather than assuming harness-level changes are safe
+
+## Security and Git Hygiene
+
+- Never introduce new hardcoded secrets or reprint existing credentials into docs, logs, or summaries
+- Review `git diff` before committing and pushing
+- Never force push or rewrite user commits
+- If the remote, branch, or destination looks unexpected, pause and confirm before pushing
 
 ## Core Principles
 
-- **Simplicity First**: Make every change as simple as possible. Impact minimal code.
-- **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
-- **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
+- **Simplicity First**: keep changes as small and direct as possible
+- **No Laziness**: find root causes rather than layering temporary fixes
+- **Minimal Impact**: touch only what is necessary and avoid collateral regressions
+- **Evidence Over Guesswork**: prefer measured benchmark data, failing repros, and exact shape coverage over intuition
+- **Competition Realism**: optimize for verified leaderboard-safe wins, not speculative micro-optimizations
