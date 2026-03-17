@@ -11,7 +11,8 @@ For presentation use, the main tables below follow a stricter rule:
 
 - every visible optimization level must deliver at least about a `2x` incremental gain,
 - smaller improvements are merged into the nearest larger phase,
-- the fine-grained measured micro-steps are still documented later in the report for completeness.
+- the fine-grained measured micro-steps are still documented later in the report for completeness,
+- and the headline figures use the fastest achieved `min` latency.
 
 ## Methodology
 
@@ -22,7 +23,17 @@ For presentation use, the main tables below follow a stricter rule:
   - `python eval.py benchmark <kernel_dir>/`
 - The staged kernels were generated into temporary benchmark directories, synced to the server, and benchmarked there so every stage used the same `task.py`, `task.yml`, and harness.
 - Reported latency is the `min` time from the official benchmark output.
+- Headline presentation numbers use the fastest baseline `min` and the fastest optimized `min`.
 - Geomean speedup is computed across the three official benchmark shapes for each kernel.
+
+## Peak Headline Numbers
+
+These are the fastest-achieved figures to use as the top-line presentation numbers.
+
+| Kernel | Fastest baseline min | Fastest optimized min | Peak headline speedup |
+|---|---:|---:|---:|
+| `causal_conv1d_py` | `249.4 us` | `9.5 us` | `26.3x` |
+| `gated_deltanet_recompute_w_u_py` | `359.1 us` | `5.6 us` | `64.1x` |
 
 ## Benchmark Shapes
 
@@ -58,10 +69,14 @@ The biggest step is not arithmetic cleanup. It is the transition from the baseli
 
 Because the measured intermediate steps below `2x` were small, they are merged into one presentation phase.
 
-| Level | What changed | Bench 0 min | Bench 1 min | Bench 2 min | Geomean min | Incremental speedup | Cumulative speedup |
-|---|---|---:|---:|---:|---:|---:|---:|
-| 0 | Upstream baseline | `249.4 us` | `411.8 us` | `816.3 us` | `437.7 us` | `1.00x` | `1.00x` |
-| 1 | Merge all meaningful optimizations: remove padded wrapper path, move causality into the kernel, retune long-`S` launch geometry, then harden final split configs | `9.5 us` | `14.1 us` | `25.5 us` | `15.1 us` | `29.06x` | `29.06x` |
+| Level | What changed | Fastest min | Peak headline speedup |
+|---|---|---:|---:|
+| 0 | Upstream baseline | `249.4 us` | `1.00x` |
+| 1 | Merge all meaningful optimizations: remove padded wrapper path, move causality into the kernel, retune long-`S` launch geometry, then harden final split configs | `9.5 us` | `26.3x` |
+
+Speaker note:
+
+- The geomean result is still `29.06x`, but the slide headline for this kernel should be `249.4 us -> 9.5 us = 26.3x`.
 
 ### Fine-Grained Measured Stages
 
@@ -219,11 +234,15 @@ After that, the remaining gains come from making the matmul version friendlier t
 
 The final micro-step from the register-tiled matmul to the exact repo submission is effectively tied on H200, so it is merged into the last major phase.
 
-| Level | What changed | Bench 0 min | Bench 1 min | Bench 2 min | Geomean min | Incremental speedup | Cumulative speedup |
-|---|---|---:|---:|---:|---:|---:|---:|
-| 0 | Upstream baseline | `368.8 us` | `359.6 us` | `359.1 us` | `362.5 us` | `1.00x` | `1.00x` |
-| 1 | Remove reverse duplicate pass and final averaging | `83.0 us` | `91.7 us` | `91.3 us` | `88.6 us` | `4.09x` | `4.09x` |
-| 2 | Merge the matmul rewrite path: direct chunk matmuls, register tiling, and final per-shape submission hardening | `5.6 us` | `6.3 us` | `7.0 us` | `6.3 us` | `14.12x` | `57.77x` |
+| Level | What changed | Fastest min | Peak headline speedup |
+|---|---|---:|---:|
+| 0 | Upstream baseline | `359.1 us` | `1.00x` |
+| 1 | Remove reverse duplicate pass and final averaging | `83.0 us` | `4.3x` |
+| 2 | Merge the matmul rewrite path: direct chunk matmuls, register tiling, and final per-shape submission hardening | `5.6 us` | `64.1x` |
+
+Speaker note:
+
+- The geomean result is `57.77x`, but the slide headline for this kernel should be `359.1 us -> 5.6 us = 64.1x`.
 
 ### Fine-Grained Measured Stages
 
