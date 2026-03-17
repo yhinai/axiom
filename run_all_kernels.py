@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -16,6 +17,7 @@ KERNEL_DIRS = [
     "gated_deltanet_chunk_fwd_o_py",
     "gated_deltanet_recompute_w_u_py",
 ]
+BEST_RESULTS_PATH = "kernel_best_results.json"
 
 BENCHMARK_RE = re.compile(
     r"^\s*Benchmark\s+\d+:\s+"
@@ -40,6 +42,8 @@ class KernelSummary:
     tests_passed: bool
     benchmark_failures: int
     fastest: BenchmarkResult | None
+    best_ever: BenchmarkResult | None
+    best_ever_updated: bool
     return_code: int
 
 
@@ -70,7 +74,44 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def run_kernel(repo_root: Path, python_exe: str, mode: str, kernel_dir: str) -> KernelSummary:
+def load_best_results(repo_root: Path) -> dict[str, BenchmarkResult]:
+    path = repo_root / BEST_RESULTS_PATH
+    if not path.exists():
+        return {}
+
+    raw = json.loads(path.read_text())
+    return {
+        name: BenchmarkResult(
+            mean_ms=entry["mean_ms"],
+            min_ms=entry["min_ms"],
+            max_ms=entry["max_ms"],
+            spec=entry["spec"],
+        )
+        for name, entry in raw.items()
+    }
+
+
+def save_best_results(repo_root: Path, best_results: dict[str, BenchmarkResult]) -> None:
+    path = repo_root / BEST_RESULTS_PATH
+    serializable = {
+        name: {
+            "mean_ms": result.mean_ms,
+            "min_ms": result.min_ms,
+            "max_ms": result.max_ms,
+            "spec": result.spec,
+        }
+        for name, result in best_results.items()
+    }
+    path.write_text(json.dumps(serializable, indent=2, sort_keys=True) + "\n")
+
+
+def run_kernel(
+    repo_root: Path,
+    python_exe: str,
+    mode: str,
+    kernel_dir: str,
+    best_results: dict[str, BenchmarkResult],
+) -> KernelSummary:
     cmd = [python_exe, "eval.py", mode, f"{kernel_dir}/"]
     process = subprocess.Popen(
         cmd,
@@ -125,11 +166,21 @@ def run_kernel(repo_root: Path, python_exe: str, mode: str, kernel_dir: str) -> 
 
     return_code = process.wait()
     fastest = min(benchmarks, key=lambda result: result.min_ms) if benchmarks else None
+    previous_best = best_results.get(kernel_dir)
+    best_ever = previous_best
+    best_ever_updated = False
+    if fastest is not None and (previous_best is None or fastest.min_ms < previous_best.min_ms):
+        best_results[kernel_dir] = fastest
+        best_ever = fastest
+        best_ever_updated = True
+
     return KernelSummary(
         name=kernel_dir,
         tests_passed=tests_passed,
         benchmark_failures=benchmark_failures,
         fastest=fastest,
+        best_ever=best_ever,
+        best_ever_updated=best_ever_updated,
         return_code=return_code,
     )
 
@@ -146,25 +197,42 @@ def print_summary(summaries: list[KernelSummary], mode: str) -> None:
             print(f"{summary.name}: {status} no benchmark results")
             continue
 
-        print(
-            f"{summary.name}: {status} fastest min={ms_to_us_text(summary.fastest.min_ms)} "
+        latest_text = (
+            f"latest fastest min={ms_to_us_text(summary.fastest.min_ms)} "
             f"(mean={ms_to_us_text(summary.fastest.mean_ms)}, "
             f"max={ms_to_us_text(summary.fastest.max_ms)}) "
             f"for {summary.fastest.spec}"
+        )
+        if summary.best_ever is None:
+            print(f"{summary.name}: {status} {latest_text}")
+            continue
+
+        best_label = "best-ever"
+        if summary.best_ever_updated:
+            best_label += " updated"
+        print(
+            f"{summary.name}: {status} {latest_text}; "
+            f"{best_label} min={ms_to_us_text(summary.best_ever.min_ms)} "
+            f"(mean={ms_to_us_text(summary.best_ever.mean_ms)}, "
+            f"max={ms_to_us_text(summary.best_ever.max_ms)}) "
+            f"for {summary.best_ever.spec}"
         )
 
 
 def main() -> int:
     args = parse_args()
     repo_root = Path(__file__).resolve().parent
+    best_results = load_best_results(repo_root)
     summaries: list[KernelSummary] = []
 
     for kernel_dir in KERNEL_DIRS:
-        summary = run_kernel(repo_root, args.python, args.mode, kernel_dir)
+        summary = run_kernel(repo_root, args.python, args.mode, kernel_dir, best_results)
         summaries.append(summary)
         if summary.return_code != 0 and not args.keep_going:
             break
 
+    if args.mode != "test":
+        save_best_results(repo_root, best_results)
     print_summary(summaries, args.mode)
     return 0 if summaries and all(summary.return_code == 0 for summary in summaries) else 1
 
