@@ -14,3 +14,10 @@
 - Promoted the direct-layout `gated_deltanet_recompute_w_u_py` rewrite after it passed correctness and improved H200 benchmark mins from `8.0 / 9.5 / 15.7 us` to `5.6 / 6.3 / 6.9 us`.
 - Reconfirmed the earlier wins in `causal_conv1d_py` and `gated_deltanet_chunk_fwd_o_py` with a fresh full four-kernel run on `helion`.
 - Rejected deeper `gated_deltanet_chunk_fwd_h_py` external variants because the H200-safe runs were still slower than the current repo kernel, and one B200-tuned variant still relied on unsupported `range_warp_specializes` settings on H200.
+
+## Next Audit
+
+- [ ] Search current public Helion submissions and upstream PRs for per-kernel compute, memory, and buffering optimizations that are not yet reflected locally.
+- [ ] Compare each online optimization pattern against the current local kernels and note any gaps in `EXTERNAL_KERNEL_REVIEW.md`.
+- [ ] Implement any additional high-confidence wins and validate them with `eval.py test|benchmark` on `helion`.
+- [ ] Re-run the full all-kernels benchmark and record the best verified results.
