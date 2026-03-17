@@ -224,11 +224,11 @@ def main() -> int:
     device = "cuda"
 
     B, T, H, K, V = 2, 1024, 3, 64, 64
-    q = torch.randn(B, T, H, K, device=device, dtype=torch.bfloat16)
-    k = torch.randn(B, T, H, K, device=device, dtype=torch.bfloat16)
-    v = torch.randn(B, T, H, V, device=device, dtype=torch.bfloat16)
-    h = torch.randn(B, T // 64, H, K, V, device=device, dtype=torch.bfloat16)
-    g = torch.randn(B, T, H, device=device, dtype=torch.bfloat16)
+    q = torch.randn(B, T, H, K, device=device, dtype=torch.float32)
+    k = torch.randn(B, T, H, K, device=device, dtype=torch.float32)
+    v = torch.randn(B, T, H, V, device=device, dtype=torch.float32)
+    h = torch.randn(B, T // 64, H, K, V, device=device, dtype=torch.float32)
+    g = torch.randn(B, T, H, device=device, dtype=torch.float32)
     scale = K ** -0.5
     args = (q, k, v, h, g, scale)
 
