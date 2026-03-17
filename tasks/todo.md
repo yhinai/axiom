@@ -31,10 +31,18 @@
 
 ## Optimization Ladder
 
-- [ ] Build cumulative optimization ladders for `causal_conv1d_py` and `gated_deltanet_recompute_w_u_py` from upstream baseline to current final kernel.
-- [ ] Benchmark each ladder step on `helion` with the official `eval.py benchmark` harness.
-- [ ] Compute per-step latency deltas and cumulative speedups for presentation use.
-- [ ] Write a presentation-grade markdown report explaining each optimization step and its measured gain.
+- [x] Build cumulative optimization ladders for `causal_conv1d_py` and `gated_deltanet_recompute_w_u_py` from upstream baseline to current final kernel.
+- [x] Benchmark each ladder step on `helion` with the official `eval.py benchmark` harness.
+- [x] Compute per-step latency deltas and cumulative speedups for presentation use.
+- [x] Write a presentation-grade markdown report explaining each optimization step and its measured gain.
+
+## Optimization Ladder Review
+
+- Added [PRESENTATION_OPTIMIZATION_LADDER.md](../PRESENTATION_OPTIMIZATION_LADDER.md), which records the cumulative stage-by-stage path from the upstream `main/problems/helion` baseline to the current local kernels for `causal_conv1d_py` and `gated_deltanet_recompute_w_u_py`.
+- Benchmarked every stage on `helion` with the official `eval.py benchmark` harness rather than estimating gains from inspection.
+- Confirmed that `causal_conv1d_py` is mostly a launch-geometry story: removing wrapper padding helped modestly, but the dominant step was moving from the baseline placeholder config to larger benchmark-shape `S` tiles.
+- Confirmed that `gated_deltanet_recompute_w_u_py` is mostly an algorithm-shape story: deleting the reverse duplicate pass gave a large early win, and replacing explicit outer-product accumulation with direct `hl.dot` matmuls produced the biggest jump.
+- Recorded one important presentation nuance: the current final recompute kernel is the production submission version, but on this H200 run it is effectively tied with the immediately preceding register-tiled stage rather than materially faster.
 
 ## Codex ECC Adaptation
 
