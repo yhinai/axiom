@@ -68,14 +68,14 @@ def _make_kernel(config: helion.Config):
             idx = hl.arange(tile_t.block_size)
             mask = idx[:, None] >= idx[None, :]
             qk = torch.where(mask, qk, 0.0)
-            # local_out = qk @ v
-            local_out = hl.dot(qk.to(v.dtype), v_chunk)
+            # Fuse the inter-chunk contribution into the same accumulator.
+            acc = hl.dot(qk.to(v.dtype), v_chunk)
 
             # Global: (q @ h) * exp(g)
             q_g = q_chunk * torch.exp2(g_vals[:, None] * _LOG2E)
-            global_out = hl.dot(q_g, h[b_idx, c_idx, h_idx, :, :])
+            acc = hl.dot(q_g, h[b_idx, c_idx, h_idx, :, :], acc=acc)
 
-            out[b_idx, tile_t, h_idx, :] = ((global_out + local_out) * scale).to(out.dtype)
+            out[b_idx, tile_t, h_idx, :] = (acc * scale).to(out.dtype)
 
         return out
 
