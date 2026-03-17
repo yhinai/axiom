@@ -199,7 +199,7 @@ After that, the remaining gains come from making the matmul version friendlier t
 | 1 | Remove reverse duplicate pass and averaging | `83.0 us` | `91.7 us` | `91.3 us` | `88.6 us` | `4.09x` | `4.09x` |
 | 2 | Replace scalar outer-product loops with direct chunk matmuls | `9.6 us` | `11.8 us` | `12.6 us` | `11.3 us` | `7.87x` | `32.19x` |
 | 3 | Add register tiling and a matmul-friendly config | `5.6 us` | `6.2 us` | `7.0 us` | `6.2 us` | `1.80x` | `58.08x` |
-| 4 | Final repo kernel: per-shape submission config hardening | `5.6 us` | `6.3 us` | `7.0 us` | `6.3 us` | `0.99x` | `57.77x` |
+| 4 | Final repo kernel: per-shape submission config hardening | `5.6 us` | `6.3 us` | `7.0 us` | `6.3 us` | `~1.00x (tied)` | `57.77x` |
 
 ### What Each Stage Did
 
@@ -319,14 +319,16 @@ Final changes relative to stage 3:
 Measured result:
 
 - Ties stage 3 on benchmarks 0 and 2.
-- Is slightly slower on benchmark 1 on this H200 run.
+- Is marginally slower on benchmark 1 on this H200 run (`6.2 us` -> `6.3 us`).
+- The geomean difference versus stage 3 is about `0.5%`, so for presentation purposes this is best treated as a tie rather than a new performance step.
 - Ends at `57.77x` cumulative geomean speedup versus the upstream baseline.
 
 Interpretation:
 
 - Stage 4 is best thought of as the submission-hardened final kernel rather than a pure speed-only layer.
 - It is the version we keep in the repo because it is the real multi-shape submission implementation.
-- On this H200 benchmark pass it is effectively tied with stage 3, with a tiny geomean regression of about `0.5%`, which is small enough to treat as a near-tie rather than a change in the main story.
+- The optimization story effectively stops at stage 3.
+- Stage 4 should be presented as "final submitted kernel, performance tied with stage 3 on H200" rather than as an additional optimization win.
 
 ### Final Kernel Anatomy
 
