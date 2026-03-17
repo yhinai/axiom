@@ -10,7 +10,7 @@ import helion.language as hl
 
 # Per-shape configs: map (B, T, H, K, V) to optimized helion.Config objects.
 # Autotuned config from B200
-_TUNED = helion.Config(block_sizes=[], indexing=['tensor_descriptor', 'pointer', 'pointer', 'pointer', 'pointer', 'pointer'], l2_groupings=[1], load_eviction_policies=['', '', '', '', ''], loop_orders=[[1, 0]], num_stages=1, num_warps=16, pid_type='flat', range_flattens=[None], range_multi_buffers=[None], range_num_stages=[0], range_unroll_factors=[0], range_warp_specializes=[None])
+_TUNED = helion.Config(block_sizes=[], indexing=['tensor_descriptor', 'pointer', 'pointer', 'pointer', 'pointer', 'pointer'], l2_groupings=[1], load_eviction_policies=['', '', '', '', ''], loop_orders=[[1, 0]], num_stages=1, num_warps=4, pid_type='flat', range_flattens=[None], range_multi_buffers=[None], range_num_stages=[0], range_unroll_factors=[0], range_warp_specializes=[None])
 
 SHAPE_CONFIGS: dict[tuple, helion.Config] = {
     # Test shapes
