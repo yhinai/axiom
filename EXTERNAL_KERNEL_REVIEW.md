@@ -93,6 +93,8 @@
 
 - `gated_deltanet_chunk_fwd_h_py`: the external `ramizik` and `desu` variants benchmarked materially slower than the current repo kernel on H200.
 - `gated_deltanet_chunk_fwd_h_py`: the `brandonin` variant could not be compared cleanly on H200 because it still depended on unsupported `range_warp_specializes` settings and external ACF files.
+- `gated_deltanet_chunk_fwd_o_py`: a new audit pass tried public persistent/block-pointer config ideas from sources like `kg2468` and `rajk97` on top of our fused kernel, but the resulting variant failed correctness with `nan` outputs on all official benchmark shapes on H200.
+- `causal_conv1d_py`: the only remaining small public-code idea worth probing was bias preloading into the accumulator, but the straightforward Helion expression for that introduced an invalid CPU/GPU mixed trace and was not a viable kernel change.
 
 ## Best next experiments
 
