@@ -40,11 +40,14 @@
 
 - [x] Inspect the current project-level Codex guidance and note Claude-only behaviors that should not survive the migration.
 - [x] Review the upstream `everything-claude-code` Codex support files and extract the parts that translate cleanly to this repo.
-- [ ] Rewrite the local instruction stack for Codex-native planning, verification, review, and project memory.
-- [ ] Add project-local `.codex` baseline files tuned to Helion kernel work instead of generic web-app defaults.
-- [ ] Add the missing `tasks/lessons.md` scaffold referenced by the project rules.
-- [ ] Review the final guidance for contradictions with current project constraints and document the result below.
+- [x] Rewrite the local instruction stack for Codex-native planning, verification, review, and project memory.
+- [x] Add project-local `.codex` baseline files tuned to Helion kernel work instead of generic web-app defaults.
+- [x] Add the missing `tasks/lessons.md` scaffold referenced by the project rules.
+- [x] Review the final guidance for contradictions with current project constraints and document the result below.
 
 ## Codex ECC Adaptation Review
 
-- Pending implementation.
+- Replaced the Claude-specific team commands and Opus references in `AGENTS.md` with Codex-native planning, review, and parallel-work guidance while keeping the Helion kernel context intact.
+- Added a project-local `.codex` stack with a Helion-focused supplement, a minimal config baseline, and three reusable agent role files for exploration, review, and benchmarking.
+- Created `tasks/lessons.md` so the existing self-improvement loop now points at a real file instead of a missing path.
+- Intentionally kept the ECC ideas that translate well to Codex, such as explicit planning, repro-first changes, self-review, and diff hygiene, while omitting Claude-only hooks, slash commands, and plugin packaging.
