@@ -11,7 +11,6 @@ from pathlib import Path
 
 
 KERNEL_DIRS = [
-    "fp8_quant_py",
     "causal_conv1d_py",
     "gated_deltanet_chunk_fwd_h_py",
     "gated_deltanet_chunk_fwd_o_py",

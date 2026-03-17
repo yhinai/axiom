@@ -1103,42 +1103,7 @@ popcorn submit submission.py --gpu B200_Nebius --leaderboard causal_conv1d --mod
 
 # 14. Kernel-by-Kernel Deep Analysis
 
-## 14.1 FP8 Quantization (`fp8_quant`)
-
-### Algorithm
-Per-token-group quantization to FP8 E4M3 format (range: [-448, 448]):
-1. Reshape input `[T, H]` into groups `[T*G, group_size]` where G = H/group_size
-2. Compute per-group absmax: `amax = max(|x|) per row`
-3. Compute scale: `scale = clamp(amax, min=1e-10) / 448.0`
-4. Quantize: `x_q = clamp(x / scale, -448, 448)`
-
-### Relevance
-FP8 quantization is used in DeepSeek-V3, Llama 3, and Qwen3 for efficient inference with reduced memory bandwidth and compute requirements.
-
-### FP8 Format Details
-- **E4M3**: 4 exponent bits, 3 mantissa bits; range [-448, 448]; best for weights/activations
-- **E5M2**: 5 exponent bits, 2 mantissa bits; range [-57344, 57344]; best for gradients
-- Hardware support: NVIDIA H100 and Blackwell (dedicated FP8 Tensor Cores)
-
-### Optimization Insights
-- The baseline computes abs/amax 3 times and averages (intentionally wasteful)
-- Optimal: single-pass reduction per group (absmax), single division for quantization
-- Memory-bound kernel: minimize global memory accesses
-- The block_size should match group_size for single-pass row processing
-- For large N (4096 tokens), use larger block sizes for better occupancy
-
-### Test Shapes
-`(T=1,H=256,gsz=64)`, `(4,512,128)`, `(16,1024,64)`, `(1,4096,128)`, `(8,4096,128)`
-
-### Benchmark Shapes
-`(1,4096,128)`, `(16,4096,128)`, `(256,4096,128)`, `(256,8192,128)`, `(4096,7168,128)`
-
-### Accuracy Tolerance
-rtol=1e-3, atol=1e-3 (stricter than DeltaNet kernels)
-
----
-
-## 14.2 Causal Depthwise 1D Convolution (`causal_conv1d`)
+## 14.1 Causal Depthwise 1D Convolution (`causal_conv1d`)
 
 ### Algorithm
 Depthwise convolution with causal (left) padding, used in Mamba/Mamba-2 SSMs:

@@ -706,24 +706,6 @@ export HELION_AUTOTUNE_COMPILE_TIMEOUT=20
 
 ## 15.2 Per-Kernel TileIR Strategy
 
-### FP8 Quantization (Correctness Only, No Performance Score)
-
-TileIR benefit: **Low**. This is an elementwise/reduction kernel, not dot-heavy.
-- Keep `num_ctas=1` (no matmul operations)
-- Use `occupancy=4` for memory bandwidth
-- Use `indexing="pointer"` for per-row reductions
-
-```python
-# TileIR config for fp8_quant
-helion.Config(
-    block_sizes=[64],
-    num_ctas=1,
-    occupancy=4,
-    num_stages=2,
-    indexing="pointer",
-)
-```
-
 ### Causal Conv1D (1000 Performance Points)
 
 TileIR benefit: **Low-Medium**. Dominated by small inner loops (W=3-8), not large matmuls.
