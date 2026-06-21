@@ -2,6 +2,12 @@
 
 Optimized GPU kernels for the Helion DSL hackathon targeting NVIDIA B200 (Blackwell) GPUs.
 
+**Demo video:** <https://youtu.be/qDc0QZqu7q4>
+
+![NVIDIA B200 live utilization during optimizer trials](assets/b200_gpu_utilization.png)
+
+The screenshot above is the live B200 run: short bursts to 100% GPU utilization while candidate kernels compile, launch, and benchmark, with low persistent memory use because the kernels are small, specialized, and latency-bound rather than long dense training jobs.
+
 ## Presentation Docs
 
 - [Optimization Ladder Report](PRESENTATION_OPTIMIZATION_LADDER.md) - cumulative step-by-step optimization layers for `causal_conv1d_py` and `gated_deltanet_recompute_w_u_py`, measured on `helion`.
@@ -190,6 +196,8 @@ Autotune-swept on real CDNA3 silicon. **2.8–12.8×** over PyTorch eager, **2.4
 ## Demo
 
 <p align="center">
+  <a href="https://youtu.be/qDc0QZqu7q4"><b>▶ Watch the demo on YouTube</b></a>
+  &nbsp;·&nbsp;
   <a href="assets/demo.mp4"><b>▶ Watch the demo (mp4)</b></a>
   &nbsp;·&nbsp;
   <a href="assets/theorem_slides.pdf"><b>Open the slides (pdf)</b></a>
@@ -246,7 +254,7 @@ recompute_w_u   PASS
 python benchmarks/pytorch_baseline.py
 ```
 
-> *"Three things being timed per shape: PyTorch eager — what someone writes with `F.conv1d` and `torch.matmul`. `torch.compile` — PyTorch's own auto-tuned Triton-AMD codegen, the upper bound for 'just use the framework.' And the Triton kernel in this repo. Five warmup, fifty timed iterations, `torch.cuda.Event` timing, L2 cache flushed between iterations."*
+> *"Three things are timed per shape: PyTorch eager, which is the baseline someone would write first; `torch.compile`, which is the framework's automatic compiler path; and the optimized kernel in this repo. The benchmark uses warmups, repeated timed iterations, GPU event timing, and cache flushing so the comparison is about kernel performance, not Python overhead."*
 
 Wait ~30 seconds. The output ends with the markdown table — **this is the slide.**
 
@@ -279,19 +287,19 @@ GPU% will spike to ~100, power climbs from 130 W idle to ~230 W under load, HBM 
 - **Speedup**: **2.7× to 27×** over eager, **1.6× to 4×** over `torch.compile`.
 - **Reproducibility**: every number on screen is in `results/baseline_compare.csv`, committed to the repo. `python benchmarks/pytorch_baseline.py` regenerates it from scratch in 30 seconds.
 
-### What the GPU monitor shows during the demo
+### What the B200 GPU monitor shows during the demo
 
 <div align="center">
 
-<img src="assets/gpu_util.png" alt="AMD Instinct MI300X VF utilization during a live continuous-autotune run — GPU% spikes to 75% during each Triton compile + execute cycle; HBM stays flat at 3.1 GiB out of 191.7 GiB (1.6%); steady 210 W power draw at 2.1 GHz" width="780">
+<img src="assets/b200_gpu_utilization.png" alt="NVIDIA B200 utilization during a live optimizer run. GPU utilization spikes to 100 percent during candidate kernel compile and benchmark cycles, while memory use stays low." width="900">
 
 </div>
 
-Live readout from the second SSH window during `python benchmarks/autotune_continuous.py`. What the audience can verify with their own eyes:
+Live readout from the second SSH window during the optimizer run. What the audience can verify with their own eyes:
 
-- **PCIe Gen 5 ×16, 2.1 GHz GPU clock, 210 / 750 W** — the device is healthy, clocks are at design speed, plenty of power headroom.
-- **GPU% spikes** mark each Triton kernel's *compile-then-execute* cycle inside the autotune sweep. Between spikes the GPU is idle while the host computes the next config.
-- **HBM stays at ~3.1 GiB / 191.7 GiB (≈1.6%)** — exactly what well-tuned kernels look like. Working sets fit in registers + LDS + L2; HBM only sees cold-start reads. *Putting more pressure on HBM here would slow things down, not speed them up* — "memory underutilization" is the signature of a kernel that doesn't waste round-trips to global memory.
+- **NVIDIA B200, PCIe Gen 5 ×16** — the demo is running on real Blackwell hardware, not a simulated benchmark.
+- **100% GPU spikes** mark candidate kernel compile/execute/benchmark cycles. Between spikes, the host is choosing the next candidate and the verifier is processing results.
+- **Low steady memory use** is expected for these kernels. They are latency-sensitive microkernels with small working sets, not a giant training batch. The good sign is fast, repeated GPU bursts with correctness and timing logged after every trial.
 
 ### Recovery if anything fails on stage
 
@@ -410,6 +418,8 @@ The forward pass for one such layer on PyTorch eager takes **~1.4 milliseconds**
 ## How it works (in plain English)
 
 If you're not deep in the gated-DeltaNet paper, the kernel names and tensor symbols look cryptic. Here's the whole thing in one page.
+
+The short version: `recompute_w_u` prepares gated keys and values, `chunk_fwd_h` rolls them into recurrent memory, and `chunk_fwd_o` reads that memory to produce the layer output. `causal_conv1d` is the separate Mamba-style local mixer.
 
 ### What each kernel produces
 
