@@ -13,6 +13,7 @@ OUT_DIR="${OUT_DIR:-runs/modal-b200-axiom}"
 LOG_DIR="${LOG_DIR:-runs/logs}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 MAX_CANDIDATES="${MAX_CANDIDATES:-0}"
+KERNEL_WORKERS="${KERNEL_WORKERS:-2}"
 
 LOCAL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -38,6 +39,7 @@ $PYTHON_BIN scripts/axiom_optimizer.py \\
   --all-kernels \\
   --duration-hours $DURATION_HOURS \\
   --out-dir $OUT_DIR \\
+  --kernel-workers $KERNEL_WORKERS \\
   --loop \\
   ${MAX_CANDIDATES:+--max-candidates $MAX_CANDIDATES} \\
   2>&1 | tee $LOG_DIR/$SESSION.log

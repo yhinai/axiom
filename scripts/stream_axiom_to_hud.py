@@ -127,38 +127,62 @@ async def _run(args: argparse.Namespace) -> int:
 
     started = time.time()
     streamed = 0
+
+    async def stream_one(row: dict[str, Any]) -> str:
+        hud_job = await taskset.run(
+            TrialRowAgent(row),
+            runtime=LocalRuntime(args.source),
+            job=job,
+            group=1,
+            max_concurrent=1,
+            rollout_timeout=args.rollout_timeout,
+        )
+        return hud_job.id
+
     while True:
-        did_work = False
-        for key, row in _iter_new_rows(run_dir, sent):
-            did_work = True
-            hud_job = await taskset.run(
-                TrialRowAgent(row),
-                runtime=LocalRuntime(args.source),
-                job=job,
-                group=1,
-                max_concurrent=1,
-                rollout_timeout=args.rollout_timeout,
+        new_rows = list(_iter_new_rows(run_dir, sent))
+        did_work = bool(new_rows)
+        for offset in range(0, len(new_rows), args.max_concurrent):
+            batch = new_rows[offset : offset + args.max_concurrent]
+            results = await asyncio.gather(
+                *(stream_one(row) for _, row in batch),
+                return_exceptions=True,
             )
-            sent.add(key)
-            streamed += 1
-            _save_state(state_path, sent)
-            print(
-                json.dumps(
-                    {
-                        "streamed": streamed,
-                        "job_id": hud_job.id,
-                        "kernel": row.get("kernel"),
-                        "trial": row.get("trial"),
-                        "candidate": row.get("candidate"),
-                        "accepted": row.get("accepted"),
-                        "reward": row.get("reward"),
-                    },
-                    sort_keys=True,
-                ),
-                flush=True,
-            )
-            if args.max_rows and streamed >= args.max_rows:
-                return 0
+            for (key, row), result in zip(batch, results, strict=True):
+                if isinstance(result, Exception):
+                    print(
+                        json.dumps(
+                            {
+                                "stream_error": {"type": type(result).__name__, "message": str(result)},
+                                "kernel": row.get("kernel"),
+                                "trial": row.get("trial"),
+                                "candidate": row.get("candidate"),
+                            },
+                            sort_keys=True,
+                        ),
+                        flush=True,
+                    )
+                    continue
+                sent.add(key)
+                streamed += 1
+                _save_state(state_path, sent)
+                print(
+                    json.dumps(
+                        {
+                            "streamed": streamed,
+                            "job_id": result,
+                            "kernel": row.get("kernel"),
+                            "trial": row.get("trial"),
+                            "candidate": row.get("candidate"),
+                            "accepted": row.get("accepted"),
+                            "reward": row.get("reward"),
+                        },
+                        sort_keys=True,
+                    ),
+                    flush=True,
+                )
+                if args.max_rows and streamed >= args.max_rows:
+                    return 0
         if args.once and not did_work:
             return 0
         if args.duration_seconds and time.time() - started >= args.duration_seconds:
@@ -175,6 +199,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--poll-seconds", type=float, default=10.0)
     parser.add_argument("--duration-seconds", type=float, default=0.0)
     parser.add_argument("--rollout-timeout", type=float, default=120.0)
+    parser.add_argument("--max-concurrent", type=int, default=4)
     parser.add_argument("--max-rows", type=int, default=0)
     parser.add_argument("--once", action="store_true")
     return parser.parse_args()

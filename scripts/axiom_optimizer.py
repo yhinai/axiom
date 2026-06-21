@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -265,6 +266,23 @@ def optimize_kernel(args: argparse.Namespace, kernel: str) -> dict:
                     "best_geomean_mean_ms_after": row["best_geomean_mean_ms_after"],
                     "speedup_vs_best_before": speedup_vs_best,
                 })
+                print(
+                    json.dumps(
+                        {
+                            "event": "trial",
+                            "kernel": kernel,
+                            "trial": trial,
+                            "candidate": candidate.name,
+                            "correct": result["correct"],
+                            "accepted": is_better,
+                            "reward": row["reward"],
+                            "candidate_geomean_mean_ms": candidate_ms,
+                            "best_geomean_mean_ms_after": row["best_geomean_mean_ms_after"],
+                        },
+                        sort_keys=True,
+                    ),
+                    flush=True,
+                )
                 if args.once:
                     raise TimeoutError
             if not args.loop:
@@ -304,6 +322,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timeout", type=float, default=900.0)
     parser.add_argument("--python", default=sys.executable)
     parser.add_argument("--max-candidates", type=int, default=0)
+    parser.add_argument(
+        "--kernel-workers",
+        type=int,
+        default=1,
+        help="Run independent kernel optimization loops in parallel. Keep <= number of selected kernels.",
+    )
     parser.add_argument("--loop", action="store_true", help="Keep cycling candidates until duration expires.")
     parser.add_argument("--once", action="store_true", help="Run one candidate per selected kernel.")
     parser.add_argument("--stream-hud", action="store_true", help="Reserved for HUD bridge; JSONL logs remain authoritative.")
@@ -313,9 +337,25 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     kernels = list(DEFAULT_KERNELS) if args.all_kernels else [item.strip() for item in args.kernels.split(",") if item.strip()]
-    summaries = []
-    for kernel in kernels:
-        summaries.append(optimize_kernel(args, kernel))
+    workers = max(1, min(args.kernel_workers, len(kernels)))
+    if workers == 1:
+        summaries = [optimize_kernel(args, kernel) for kernel in kernels]
+    else:
+        summaries = []
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = {executor.submit(optimize_kernel, args, kernel): kernel for kernel in kernels}
+            for future in as_completed(futures):
+                kernel = futures[future]
+                try:
+                    summaries.append(future.result())
+                except Exception as exc:  # noqa: BLE001
+                    summaries.append(
+                        {
+                            "event": "run_failed",
+                            "kernel": kernel,
+                            "error": {"type": type(exc).__name__, "message": str(exc)},
+                        }
+                    )
     print(json.dumps({"summaries": summaries}, indent=2, sort_keys=True))
     return 0
 

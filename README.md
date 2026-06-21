@@ -96,6 +96,7 @@ SESSION=axiom-kernel-improve \
 DURATION_HOURS=5 \
 OUT_DIR=runs/modal-b200-axiom \
 PYTHON_BIN=/workspace/protean/.venv/bin/python \
+KERNEL_WORKERS=4 \
 scripts/start_modal_axiom_optimizer.sh
 ```
 
@@ -116,8 +117,16 @@ ssh modal 'cd /workspace/axiom && tmux new-session -d -s axiom-hud-stream \
     --job-name axiom-modal-b200-live \
     --state .hud_stream_state.json \
     --poll-seconds 10 \
+    --max-concurrent 8 \
     2>&1 | tee runs/logs/axiom-hud-stream.log"'
 ```
+
+For better B200 utilization, keep one optimizer worker per kernel. The default
+launcher supports `KERNEL_WORKERS`; `KERNEL_WORKERS=4` runs the four default
+kernel eval loops concurrently. This turns the workload from a single serial
+`eval.py` process into four active `eval.py` processes and produces frequent
+100% GPU bursts. The workload is still bursty because each candidate has
+Python, Helion/Torch compile, and harness setup time between timed GPU sections.
 
 Watch the HUD streamer:
 
