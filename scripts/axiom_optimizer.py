@@ -169,6 +169,7 @@ def optimize_kernel(args: argparse.Namespace, kernel: str) -> dict:
     kernel_out.mkdir(parents=True, exist_ok=True)
     log_path = kernel_out / "trials.jsonl"
     improvements_path = kernel_out / f"improvements_{kernel}.jsonl"
+    best_history_path = kernel_out / "best_history.jsonl"
     best_path = kernel_out / "best_submission.py"
 
     submission_path = ROOT / kernel / "submission.py"
@@ -266,6 +267,22 @@ def optimize_kernel(args: argparse.Namespace, kernel: str) -> dict:
                     "best_geomean_mean_ms_after": row["best_geomean_mean_ms_after"],
                     "speedup_vs_best_before": speedup_vs_best,
                 })
+                if is_better:
+                    write_jsonl(
+                        best_history_path,
+                        {
+                            "event": "accepted",
+                            "time": row["time"],
+                            "kernel": kernel,
+                            "trial": trial,
+                            "candidate": candidate.name,
+                            "reward": row["reward"],
+                            "best_geomean_mean_ms": row["best_geomean_mean_ms_after"],
+                            "speedup_vs_best_before": speedup_vs_best,
+                            "source_path": result.get("source_path"),
+                            "deployed_path": result.get("deployed_path"),
+                        },
+                    )
                 print(
                     json.dumps(
                         {
@@ -306,6 +323,7 @@ def optimize_kernel(args: argparse.Namespace, kernel: str) -> dict:
         "elapsed_sec": round(time.time() - started, 6),
         "log": str(log_path),
         "improvements": str(improvements_path),
+        "best_history": str(best_history_path),
     }
     write_jsonl(log_path, final)
     write_jsonl(improvements_path, final)

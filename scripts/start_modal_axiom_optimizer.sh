@@ -19,8 +19,11 @@ LOCAL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 ssh "$REMOTE_HOST" "mkdir -p '$REMOTE_DIR' '$REMOTE_DIR/$LOG_DIR' ~/.hud"
 COPYFILE_DISABLE=1 tar -C "$LOCAL_ROOT" \
+  --no-xattrs \
   --exclude './.git' \
   --exclude './__pycache__' \
+  --exclude './._*' \
+  --exclude '*/._*' \
   --exclude './runs' \
   -czf - . | ssh "$REMOTE_HOST" "cd '$REMOTE_DIR' && tar -xzf -"
 

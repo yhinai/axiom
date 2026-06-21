@@ -89,15 +89,20 @@ Axiom can run a verifier-first improvement loop on `ssh modal`:
 4. Write durable JSONL traces under `runs/modal-b200-axiom/`.
 5. Stream each trial row into one HUD job in real time.
 
+Current HUD surfaces:
+
+- Environment: <https://hud.ai/environments/516304df-8ea8-4d32-854c-8c6971776df3>
+- Taskset: <https://hud.ai/tasksets/bee38789-39d1-471e-ba59-fcef6fd83d1c>
+- Active Modal B200 overnight job: <https://hud.ai/jobs/86135951de854b5387da495077057551>
+
 Start the B200 optimizer:
 
 ```bash
-SESSION=axiom-kernel-improve \
-DURATION_HOURS=5 \
-OUT_DIR=runs/modal-b200-axiom \
-PYTHON_BIN=/workspace/protean/.venv/bin/python \
-KERNEL_WORKERS=4 \
-scripts/start_modal_axiom_optimizer.sh
+python scripts/run_modal_overnight_hud.py \
+  --duration-hours 8 \
+  --workers 8 \
+  --hud-concurrency 8 \
+  --job-name axiom-b200-overnight
 ```
 
 Watch the optimizer:
@@ -107,13 +112,14 @@ ssh modal 'tmux attach -t axiom-kernel-improve'
 ssh modal 'tail -f /workspace/axiom/runs/logs/axiom-kernel-improve.log'
 ```
 
-Start the HUD stream for the same run:
+The launcher also starts the HUD stream for the same run. To start only the
+streamer for an existing run:
 
 ```bash
 ssh modal 'cd /workspace/axiom && tmux new-session -d -s axiom-hud-stream \
   "/workspace/protean/.venv/bin/python scripts/stream_axiom_to_hud.py \
     --run-dir runs/modal-b200-axiom \
-    --source hud_env.py \
+    --source hud_app/env.py \
     --job-name axiom-modal-b200-live \
     --state .hud_stream_state.json \
     --poll-seconds 10 \
@@ -121,12 +127,25 @@ ssh modal 'cd /workspace/axiom && tmux new-session -d -s axiom-hud-stream \
     2>&1 | tee runs/logs/axiom-hud-stream.log"'
 ```
 
-For better B200 utilization, keep one optimizer worker per kernel. The default
-launcher supports `KERNEL_WORKERS`; `KERNEL_WORKERS=4` runs the four default
-kernel eval loops concurrently. This turns the workload from a single serial
-`eval.py` process into four active `eval.py` processes and produces frequent
-100% GPU bursts. The workload is still bursty because each candidate has
-Python, Helion/Torch compile, and harness setup time between timed GPU sections.
+HUD setup and sync:
+
+```bash
+ssh modal 'cd /workspace/axiom/hud_app && /workspace/protean/.venv/bin/hud deploy . --no-env'
+ssh modal 'cd /workspace/axiom && /workspace/protean/.venv/bin/hud sync tasks axiom-kernel-optimizer hud_app/env.py --yes'
+```
+
+The streamer reads `~/.hud/.env` for `HUD_API_KEY`, loads the synced taskset id
+from `.hud/config.json`, starts one HUD job for the full optimizer run, and
+records candidate source, verifier logs, correctness, reward, acceptance, and
+best-so-far metadata for every trial. HUD 0.6.7 reports local-runtime traces
+with `task_version_id=null`, so Axiom also writes explicit `task_slug` and
+`taskset_id` metadata into each trace.
+
+For better B200 utilization, keep multiple optimizer workers active. The
+overnight launcher passes `--workers` through to the Modal optimizer and starts
+a GPU monitor that writes `gpu_utilization.jsonl`. The workload is still bursty
+because each candidate has Python, Helion/Torch compile, and harness setup time
+between timed GPU sections.
 
 Watch the HUD streamer:
 
@@ -140,7 +159,9 @@ Important files:
 |---|---|
 | `runs/modal-b200-axiom/<kernel>/trials.jsonl` | Full verifier trace for every candidate |
 | `runs/modal-b200-axiom/<kernel>/improvements_<kernel>.jsonl` | Compact improvement curve |
+| `runs/modal-b200-axiom/<kernel>/best_history.jsonl` | Accepted improvements only |
 | `runs/modal-b200-axiom/<kernel>/best_submission.py` | Best accepted candidate |
+| `runs/modal-b200-axiom/gpu_utilization.jsonl` | One-second B200 utilization samples |
 | `runs/logs/axiom-kernel-improve.log` | Modal tmux optimizer log |
 | `runs/logs/axiom-hud-stream.log` | HUD stream job URL and per-row status |
 

@@ -30,6 +30,44 @@ def _bootstrap_hud_key() -> None:
             return
 
 
+def _configure_hud_sdk() -> None:
+    """Propagate HUD_API_KEY into SDK globals when the installed SDK exposes them."""
+    try:
+        from hud.settings import settings
+    except Exception:
+        return
+    api_key = os.environ.get("HUD_API_KEY")
+    if api_key:
+        try:
+            settings.api_key = api_key
+        except Exception:
+            pass
+
+
+def _load_taskset_id(source: str, explicit: str | None) -> str | None:
+    if explicit:
+        return explicit
+
+    source_path = Path(source)
+    search_roots = [source_path.parent, ROOT]
+    seen: set[Path] = set()
+    for root in search_roots:
+        if not root:
+            continue
+        config_path = (root / ".hud" / "config.json").resolve()
+        if config_path in seen or not config_path.exists():
+            continue
+        seen.add(config_path)
+        try:
+            data = json.loads(config_path.read_text())
+        except Exception:
+            continue
+        taskset_id = data.get("tasksetId") or data.get("taskset_id")
+        if isinstance(taskset_id, str) and taskset_id:
+            return taskset_id
+    return None
+
+
 def _message(role: str, text: str):
     import mcp.types as mcp_types
 
@@ -40,17 +78,23 @@ def _message(role: str, text: str):
 
 
 class TrialRowAgent:
-    def __init__(self, row: dict[str, Any]):
+    def __init__(self, row: dict[str, Any], *, task_slug: str, taskset_id: str | None):
         self.row = row
+        self.task_slug = task_slug
+        self.taskset_id = taskset_id
 
     async def __call__(self, run) -> None:
         from hud.types import Step
 
         payload = json.dumps(self.row, sort_keys=True)
+        source = str(self.row.get("candidate_source") or "")
+        verifier_log = str(self.row.get("verifier_log") or "")
         run.trace.content = payload
         run.trace.extra.update(
             {
                 "agent": "axiom_jsonl_streamer",
+                "task_slug": self.task_slug,
+                "taskset_id": self.taskset_id,
                 "kernel": self.row.get("kernel"),
                 "trial": self.row.get("trial"),
                 "candidate": self.row.get("candidate"),
@@ -61,6 +105,26 @@ class TrialRowAgent:
                 "best_geomean_mean_ms_after": self.row.get("best_geomean_mean_ms_after"),
             }
         )
+        if source:
+            run.record(
+                Step(
+                    source="agent",
+                    messages=[_message("assistant", f"Candidate source:\n```python\n{source}\n```")],
+                    extra={"event": "candidate_source", "kernel": self.row.get("kernel")},
+                )
+            )
+        if verifier_log:
+            run.record(
+                Step(
+                    source="tool",
+                    messages=[_message("assistant", f"Verifier log:\n```text\n{verifier_log}\n```")],
+                    extra={
+                        "event": "verifier_log",
+                        "return_code": self.row.get("return_code"),
+                        "correct": self.row.get("correct"),
+                    },
+                )
+            )
         run.record(
             Step(
                 source="agent",
@@ -89,7 +153,7 @@ def _row_key(path: Path, line_no: int, row: dict[str, Any]) -> str:
 
 
 def _iter_new_rows(run_dir: Path, sent: set[str]):
-    for path in sorted(run_dir.glob("*/improvements_*.jsonl")):
+    for path in sorted(run_dir.glob("*/trials.jsonl")):
         for idx, line in enumerate(path.read_text().splitlines(), start=1):
             if not line.strip():
                 continue
@@ -99,14 +163,49 @@ def _iter_new_rows(run_dir: Path, sent: set[str]):
                 continue
             if row.get("event") != "trial":
                 continue
+            _enrich_row(run_dir, row)
             key = _row_key(path, idx, row)
             if key in sent:
                 continue
             yield key, row
 
 
+def _read_text(path: Path, limit: int) -> str | None:
+    try:
+        text = path.read_text(errors="replace")
+    except OSError:
+        return None
+    if len(text) <= limit:
+        return text
+    return text[:limit] + f"\n\n... truncated {len(text) - limit} chars ..."
+
+
+def _enrich_row(run_dir: Path, row: dict[str, Any]) -> None:
+    for field, out_field, limit in (
+        ("deployed_path", "candidate_source", 20000),
+        ("output_path", "verifier_log", 12000),
+    ):
+        value = row.get(field)
+        if not isinstance(value, str) or row.get(out_field):
+            continue
+        path = Path(value)
+        if not path.is_absolute():
+            path = ROOT / path
+        text = _read_text(path, limit)
+        if text is not None:
+            row[out_field] = text
+
+
+def _task_slug_for(row: dict[str, Any]) -> str:
+    kernel = row.get("kernel")
+    if isinstance(kernel, str):
+        return f"axiom_{kernel}"
+    return "axiom_optimizer_trial"
+
+
 async def _run(args: argparse.Namespace) -> int:
     _bootstrap_hud_key()
+    _configure_hud_sdk()
     if not os.environ.get("HUD_API_KEY"):
         print("HUD_API_KEY is required", file=sys.stderr)
         return 2
@@ -121,16 +220,38 @@ async def _run(args: argparse.Namespace) -> int:
         state_path = run_dir / args.state
     sent = _load_state(state_path)
 
-    taskset = Taskset.from_file(args.source).filter(["axiom_optimizer_trial"])
-    job = await Job.start(args.job_name, group=1)
-    print(f"https://hud.ai/jobs/{job.id}", flush=True)
+    taskset_id = _load_taskset_id(args.source, args.taskset_id)
+    if taskset_id:
+        base_taskset = Taskset.from_api(taskset_id)
+    else:
+        base_taskset = Taskset.from_file(args.source)
+    tasksets: dict[str, Any] = {}
+    job = await Job.start(args.job_name, group=1, taskset_id=taskset_id)
+    print(
+        json.dumps(
+            {
+                "hud_job": f"https://hud.ai/jobs/{job.id}",
+                "job_id": job.id,
+                "taskset_id": taskset_id,
+                "source": args.source,
+            },
+            sort_keys=True,
+        ),
+        flush=True,
+    )
 
     started = time.time()
     streamed = 0
 
     async def stream_one(row: dict[str, Any]) -> str:
-        hud_job = await taskset.run(
-            TrialRowAgent(row),
+        slug = _task_slug_for(row)
+        if slug not in tasksets:
+            filtered = base_taskset.filter([slug])
+            if not list(filtered):
+                filtered = base_taskset.filter(["axiom_optimizer_trial"])
+            tasksets[slug] = filtered
+        hud_job = await tasksets[slug].run(
+            TrialRowAgent(row, task_slug=slug, taskset_id=taskset_id),
             runtime=LocalRuntime(args.source),
             job=job,
             group=1,
@@ -193,8 +314,9 @@ async def _run(args: argparse.Namespace) -> int:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-dir", default="runs/modal-b200-axiom")
-    parser.add_argument("--source", default="hud_env.py")
+    parser.add_argument("--source", default="hud_app/env.py")
     parser.add_argument("--job-name", default="axiom-modal-b200-live")
+    parser.add_argument("--taskset-id", default="")
     parser.add_argument("--state", default=".hud_stream_state.json")
     parser.add_argument("--poll-seconds", type=float, default=10.0)
     parser.add_argument("--duration-seconds", type=float, default=0.0)

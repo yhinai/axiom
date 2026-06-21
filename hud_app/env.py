@@ -1,9 +1,4 @@
-"""HUD wrapper for Axiom optimizer trial events.
-
-The B200 benchmark loop writes verifier-produced JSON rows. This environment
-lets a HUD agent submit one such row as the answer so HUD can show the live
-optimization trace without re-running the expensive benchmark inside HUD.
-"""
+"""HUD wrapper for Axiom optimizer trial events."""
 
 from __future__ import annotations
 
@@ -13,7 +8,7 @@ from typing import Any
 try:
     from hud import Environment
     from hud.graders.results import EvaluationResult, SubScore
-except Exception:  # pragma: no cover - local editing should not require HUD.
+except Exception:  # pragma: no cover
     Environment = None
     EvaluationResult = None
     SubScore = None
@@ -34,7 +29,6 @@ def _score_event(row: dict[str, Any]) -> dict[str, Any]:
     candidate_ms = row.get("candidate_geomean_mean_ms")
     latency_score = 0.0
     if isinstance(candidate_ms, (int, float)) and candidate_ms > 0:
-        # 0.05 ms is a conservative upper bound for these B200 kernel rows.
         latency_score = max(0.0, min(1.0, 1.0 - float(candidate_ms) / 0.05))
     reward = 0.0 if not correct else max(0.0, min(1.0, reward_raw / 2.0))
     if accepted:
@@ -80,10 +74,7 @@ def _eval_result(row: dict[str, Any]):
 def _make_env():
     if Environment is None:
         return None
-    try:
-        return Environment(name="axiom")
-    except TypeError:  # pragma: no cover
-        return Environment(id="axiom")
+    return Environment(name="axiom")
 
 
 env = _make_env()
