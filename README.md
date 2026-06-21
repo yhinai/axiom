@@ -79,6 +79,62 @@ Per-group absmax → scale → quantize.
 - `tune_fwd_h.py` — Helion autotuner wrapper for chunk_fwd_h
 - `leaderboard-tui/` — Go TUI for watching rankings in real-time
 
+## Modal B200 Overnight Optimizer + HUD Stream
+
+Axiom can run a verifier-first improvement loop on `ssh modal`:
+
+1. Deploy this repo to `/workspace/axiom`.
+2. Run real Helion kernel candidates on the NVIDIA B200.
+3. Accept only candidates that pass `eval.py both` and improve geometric mean latency.
+4. Write durable JSONL traces under `runs/modal-b200-axiom/`.
+5. Stream each trial row into one HUD job in real time.
+
+Start the B200 optimizer:
+
+```bash
+SESSION=axiom-kernel-improve \
+DURATION_HOURS=5 \
+OUT_DIR=runs/modal-b200-axiom \
+PYTHON_BIN=/workspace/protean/.venv/bin/python \
+scripts/start_modal_axiom_optimizer.sh
+```
+
+Watch the optimizer:
+
+```bash
+ssh modal 'tmux attach -t axiom-kernel-improve'
+ssh modal 'tail -f /workspace/axiom/runs/logs/axiom-kernel-improve.log'
+```
+
+Start the HUD stream for the same run:
+
+```bash
+ssh modal 'cd /workspace/axiom && tmux new-session -d -s axiom-hud-stream \
+  "/workspace/protean/.venv/bin/python scripts/stream_axiom_to_hud.py \
+    --run-dir runs/modal-b200-axiom \
+    --source hud_env.py \
+    --job-name axiom-modal-b200-live \
+    --state .hud_stream_state.json \
+    --poll-seconds 10 \
+    2>&1 | tee runs/logs/axiom-hud-stream.log"'
+```
+
+Watch the HUD streamer:
+
+```bash
+ssh modal 'tail -f /workspace/axiom/runs/logs/axiom-hud-stream.log'
+```
+
+Important files:
+
+| Path | Purpose |
+|---|---|
+| `runs/modal-b200-axiom/<kernel>/trials.jsonl` | Full verifier trace for every candidate |
+| `runs/modal-b200-axiom/<kernel>/improvements_<kernel>.jsonl` | Compact improvement curve |
+| `runs/modal-b200-axiom/<kernel>/best_submission.py` | Best accepted candidate |
+| `runs/logs/axiom-kernel-improve.log` | Modal tmux optimizer log |
+| `runs/logs/axiom-hud-stream.log` | HUD stream job URL and per-row status |
+
 
 
 <div align="center">
@@ -523,4 +579,3 @@ Full file-level tree: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 To cite this work, use GitHub's "Cite this repository" button (powered by [`CITATION.cff`](CITATION.cff)). Full bibliography and external references: [`docs/REFERENCES.md`](docs/REFERENCES.md).
 
 ---
-
