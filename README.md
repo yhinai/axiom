@@ -6,6 +6,8 @@
 
 Helion kernels for Mamba-2 and Gated DeltaNet, shaped for NVIDIA B200.
 
+[**1st Place · PyTorch Helion Hackathon**](https://cerebralvalley.ai/e/helion-hackathon/hackathon/gallery?project=9)
+
 [Results](#results) · [Quick start](#quick-start) · [Kernels](#the-kernels) · [Deep dives](#deep-dives)
 
 </div>
@@ -157,7 +159,8 @@ axiom/
 
 ## Acknowledgments
 
-Built for the GPU MODE Helion Hackathon. Baselines are derived from
+Winner of the [PyTorch Helion Hackathon](https://cerebralvalley.ai/e/helion-hackathon/hackathon/gallery?project=9).
+Baselines are derived from
 [`gpu-mode/reference-kernels`](https://github.com/gpu-mode/reference-kernels/tree/main/problems/helion).
 
 <div align="center">
