@@ -78,7 +78,15 @@
 
 ## First-Place Showcase and History Cleanup
 
-- [ ] Add the official Cerebral Valley project page and first-place recognition to the README.
-- [ ] Add a concise GitHub description, project website, and relevant repository topics.
-- [ ] Rewrite every commit to remove Claude/Anthropic trailers and normalize authorship to Yahya's configured identity.
-- [ ] Force-push the rewritten history with lease protection and verify the remote repository.
+- [x] Add the official Cerebral Valley project page and first-place recognition to the README.
+- [x] Add a concise GitHub description, project website, and relevant repository topics.
+- [x] Rewrite every commit to remove Claude/Anthropic trailers and normalize authorship to Yahya's configured identity.
+- [x] Force-push the rewritten history with lease protection and verify the remote repository.
+
+## First-Place Showcase and History Cleanup Review
+
+- Linked Axiom's official Cerebral Valley gallery page from the hero and acknowledgments as the first-place PyTorch Helion Hackathon winner.
+- Added a GitHub description, gallery homepage, and focused Helion, GPU, B200, Mamba, DeltaNet, Triton, PyTorch, CUDA, and hackathon topics.
+- Rewrote all 88 commits, removing 45 Claude/Anthropic co-author trailers and normalizing author and committer identity to `yhinai <yahya.s.alhinai@gmail.com>`.
+- Verified local `main`, `origin/main`, and GitHub all resolve to the rewritten history with no Claude/Anthropic message matches or alternate identities.
+- Confirmed the rewritten tip retained the same Git tree as the pre-rewrite tip before adding this review record.
