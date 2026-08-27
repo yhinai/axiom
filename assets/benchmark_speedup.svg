@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">Axiom benchmark speedups</title>
+  <desc id="desc">Causal Conv1D reaches 29 times geomean speedup and Recompute W/U reaches 57.8 times across three H200 benchmark shapes.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#eef2ff"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#60a5fa"/>
+    </linearGradient>
+    <linearGradient id="violet" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#c084fc"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#0f172a" flood-opacity=".08"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="620" rx="36" fill="url(#bg)"/>
+  <text x="72" y="86" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="22" font-weight="650" fill="#2563eb" letter-spacing="2">MEASURED PERFORMANCE</text>
+  <text x="72" y="140" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="42" font-weight="720" fill="#0f172a">Less latency. Same harness.</text>
+  <text x="72" y="181" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="20" fill="#64748b">Geomean speedup across three benchmark shapes · NVIDIA H200</text>
+
+  <rect x="72" y="226" width="1056" height="128" rx="24" fill="#ffffff" filter="url(#shadow)"/>
+  <text x="108" y="276" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="21" font-weight="650" fill="#0f172a">Causal Conv1D</text>
+  <text x="108" y="309" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="16" fill="#64748b">249.5 µs → 9.5 µs fastest minimum</text>
+  <rect x="466" y="270" width="500" height="38" rx="19" fill="#e2e8f0"/>
+  <rect x="466" y="270" width="251" height="38" rx="19" fill="url(#blue)"/>
+  <text x="1080" y="307" text-anchor="end" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="38" font-weight="760" fill="#2563eb">29.0×</text>
+
+  <rect x="72" y="382" width="1056" height="128" rx="24" fill="#ffffff" filter="url(#shadow)"/>
+  <text x="108" y="432" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="21" font-weight="650" fill="#0f172a">Recompute W/U</text>
+  <text x="108" y="465" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="16" fill="#64748b">359.0 µs → 5.6 µs fastest minimum</text>
+  <rect x="466" y="426" width="500" height="38" rx="19" fill="#e2e8f0"/>
+  <rect x="466" y="426" width="500" height="38" rx="19" fill="url(#violet)"/>
+  <text x="1080" y="463" text-anchor="end" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="38" font-weight="760" fill="#7c3aed">57.8×</text>
+
+  <text x="72" y="566" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="16" fill="#64748b">Baseline and Axiom measured with python eval.py benchmark</text>
+</svg>
