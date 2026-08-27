@@ -93,7 +93,16 @@
 
 ## README Visual Expansion
 
-- [ ] Restore visual depth with repository-native benchmark and architecture figures.
-- [ ] Integrate the figures into a clean narrative without returning to the previous long-form clutter.
-- [ ] Add primary references for Helion, Mamba-2, Gated DeltaNet, upstream kernels, hardware, and the winning project.
-- [ ] Verify SVG rendering, Markdown links, factual labels, and the final GitHub layout.
+- [x] Restore visual depth with repository-native benchmark and architecture figures.
+- [x] Integrate the figures into a clean narrative without returning to the previous long-form clutter.
+- [x] Add primary references for Helion, Mamba-2, Gated DeltaNet, upstream kernels, hardware, and the winning project.
+- [x] Verify SVG rendering, Markdown links, factual labels, and the final GitHub layout.
+
+## README Visual Expansion Review
+
+- Added a dark pipeline figure mapping all four kernels and their roles.
+- Added a measured speedup figure for the two fully documented baseline comparisons.
+- Added a five-stage optimization-ladder figure using the exact cumulative geomean results in the existing report.
+- Kept the live B200 utilization capture, bringing the README to four purposeful figures without adding decorative badge clutter.
+- Added seven references covering Helion, Mamba-2, Gated DeltaNet, upstream kernels, benchmark evidence, the optimization ladder, and the winning project entry.
+- Verified all SVG files as valid XML, all local links as present, balanced Markdown fences, clean diffs, synchronized remote history, and Yahya-only authorship.
