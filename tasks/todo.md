@@ -90,3 +90,10 @@
 - Rewrote all 88 commits, removing 45 Claude/Anthropic co-author trailers and normalizing author and committer identity to `yhinai <yahya.s.alhinai@gmail.com>`.
 - Verified local `main`, `origin/main`, and GitHub all resolve to the rewritten history with no Claude/Anthropic message matches or alternate identities.
 - Confirmed the rewritten tip retained the same Git tree as the pre-rewrite tip before adding this review record.
+
+## README Visual Expansion
+
+- [ ] Restore visual depth with repository-native benchmark and architecture figures.
+- [ ] Integrate the figures into a clean narrative without returning to the previous long-form clutter.
+- [ ] Add primary references for Helion, Mamba-2, Gated DeltaNet, upstream kernels, hardware, and the winning project.
+- [ ] Verify SVG rendering, Markdown links, factual labels, and the final GitHub layout.
