@@ -29,18 +29,20 @@ Each implementation is written in the [Helion](https://github.com/pytorch/helion
 DSL, compiled for the target shape, checked against a PyTorch reference, and
 timed with the same evaluation harness.
 
-```text
-inputs
-  └─ recompute W/U ──► chunk state ──► chunk output
-         WY transform     recurrence      attention + state
+<p align="center">
+  <img src="assets/kernel_pipeline.svg" alt="Axiom's four-kernel Gated DeltaNet and Mamba pipeline" width="920">
+</p>
 
-     causal Conv1D ──► independent Mamba-style sequence path
-```
+<p align="center"><sub>Three Gated DeltaNet stages and one independent Mamba-style convolution path.</sub></p>
 
 ## Results
 
 Measured on the `helion` H200 environment with `python eval.py benchmark`.
 The baseline and optimized kernels use the same harness and benchmark shapes.
+
+<p align="center">
+  <img src="assets/benchmark_speedup.svg" alt="Axiom geomean benchmark speedups on NVIDIA H200" width="920">
+</p>
 
 | Kernel | Baseline | Axiom | Geomean speedup |
 |:--|--:|--:|--:|
@@ -156,6 +158,16 @@ axiom/
 ├── leaderboard-tui/                   # live leaderboard viewer
 └── eval.py                            # shared correctness + benchmark harness
 ```
+
+## References
+
+1. [Helion](https://github.com/pytorch/helion) — PyTorch-native DSL for high-performance ML kernels.
+2. [Transformers are SSMs](https://arxiv.org/abs/2405.21060) — Mamba-2 and structured state-space duality.
+3. [Gated Delta Networks](https://arxiv.org/abs/2412.06464) — the gated delta rule and parallel training algorithm.
+4. [GPU MODE reference kernels](https://github.com/gpu-mode/reference-kernels/tree/main/problems/helion) — upstream challenge baselines.
+5. [Baseline vs. optimized](PRESENTATION_BASELINE_VS_OPTIMIZED.md) — Axiom's benchmark methodology and per-shape evidence.
+6. [Optimization ladder](PRESENTATION_OPTIMIZATION_LADDER.md) — cumulative implementation changes and measured gains.
+7. [Axiom project gallery](https://cerebralvalley.ai/e/helion-hackathon/hackathon/gallery?project=9) — first-place PyTorch Helion Hackathon entry.
 
 ## Acknowledgments
 
