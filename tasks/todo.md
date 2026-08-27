@@ -62,8 +62,16 @@
 
 ## README Redesign
 
-- [ ] Audit the README against the repository, reports, scripts, and kernel inventory.
-- [ ] Remove unrelated content and reduce the page to one clear Axiom narrative.
-- [ ] Rebuild the hierarchy with a minimal hero, concise results, quick start, architecture, and links.
-- [ ] Verify every local link, command, and performance claim.
-- [ ] Review the rendered Markdown structure and document the result below.
+- [x] Audit the README against the repository, reports, scripts, and kernel inventory.
+- [x] Remove unrelated content and reduce the page to one clear Axiom narrative.
+- [x] Rebuild the hierarchy with a minimal hero, concise results, quick start, architecture, and links.
+- [x] Verify every local link, command, and performance claim.
+- [x] Review the rendered Markdown structure and document the result below.
+
+## README Redesign Review
+
+- Reduced the README from 619 lines and 4,463 words to 167 lines and 626 words.
+- Removed the appended Theorem/MI300X project, stale FP8 material, transient HUD links, and stage runbook from Axiom's landing page.
+- Reframed the page around a centered hero, one B200 proof image, measured H200 results, a compact pipeline, four kernel summaries, and a short quick start.
+- Kept detailed evidence discoverable through the existing optimization, comparison, and review reports.
+- Verified balanced code fences, all local Markdown links, clean whitespace, script CLI flags, and matching local/remote `main` commits.
