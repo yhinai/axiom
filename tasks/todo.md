@@ -75,3 +75,10 @@
 - Reframed the page around a centered hero, one B200 proof image, measured H200 results, a compact pipeline, four kernel summaries, and a short quick start.
 - Kept detailed evidence discoverable through the existing optimization, comparison, and review reports.
 - Verified balanced code fences, all local Markdown links, clean whitespace, script CLI flags, and matching local/remote `main` commits.
+
+## First-Place Showcase and History Cleanup
+
+- [ ] Add the official Cerebral Valley project page and first-place recognition to the README.
+- [ ] Add a concise GitHub description, project website, and relevant repository topics.
+- [ ] Rewrite every commit to remove Claude/Anthropic trailers and normalize authorship to Yahya's configured identity.
+- [ ] Force-push the rewritten history with lease protection and verify the remote repository.
