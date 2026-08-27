@@ -63,6 +63,14 @@ and methodology.</sub>
 | Specialize early | Hardcoded shape-aware tiles, warps, stages, and indexing |
 | Keep data close | Fused accumulation, persistent blocks, and cache-aware grouping |
 
+### How it got faster
+
+<p align="center">
+  <img src="assets/optimization_ladder.svg" alt="Five-stage measured optimization ladder for Causal Conv1D and Recompute W/U" width="920">
+</p>
+
+<p align="center"><sub>Each point is a cumulative implementation measured across the same three benchmark shapes.</sub></p>
+
 ## Quick start
 
 Run on a CUDA machine with Python, PyTorch, and Helion installed.
