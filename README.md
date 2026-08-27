@@ -29,12 +29,6 @@ Each implementation is written in the [Helion](https://github.com/pytorch/helion
 DSL, compiled for the target shape, checked against a PyTorch reference, and
 timed with the same evaluation harness.
 
-<p align="center">
-  <img src="assets/kernel_pipeline.svg" alt="Axiom's four-kernel Gated DeltaNet and Mamba pipeline" width="920">
-</p>
-
-<p align="center"><sub>Three Gated DeltaNet stages and one independent Mamba-style convolution path.</sub></p>
-
 ## Results
 
 Measured on the `helion` H200 environment with `python eval.py benchmark`.
