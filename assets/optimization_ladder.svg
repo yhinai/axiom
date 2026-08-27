@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640" role="img" aria-labelledby="title desc">
+  <title id="title">Axiom cumulative optimization ladder</title>
+  <desc id="desc">Five measured stages show Causal Conv1D improving from 1 times to 29.06 times and Recompute W/U improving from 1 times to 57.77 times.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fafafa"/>
+      <stop offset="1" stop-color="#f1f5f9"/>
+    </linearGradient>
+    <linearGradient id="line1" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0ea5e9"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="line2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#d946ef"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#0f172a" flood-opacity=".08"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="640" rx="36" fill="url(#bg)"/>
+  <text x="70" y="78" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="20" font-weight="650" fill="#7c3aed" letter-spacing="2">OPTIMIZATION LADDER</text>
+  <text x="70" y="128" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="40" font-weight="720" fill="#0f172a">Every step measured.</text>
+  <text x="70" y="166" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="19" fill="#64748b">Cumulative geomean speedup · same H200 evaluation harness</text>
+
+  <rect x="70" y="210" width="510" height="350" rx="26" fill="#ffffff" filter="url(#shadow)"/>
+  <text x="108" y="258" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="22" font-weight="680" fill="#0f172a">Causal Conv1D</text>
+  <text x="542" y="258" text-anchor="end" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="28" font-weight="760" fill="#2563eb">29.06×</text>
+  <line x1="112" y1="470" x2="538" y2="470" stroke="#e2e8f0" stroke-width="2"/>
+  <line x1="112" y1="390" x2="538" y2="390" stroke="#e2e8f0" stroke-width="2" stroke-dasharray="5 7"/>
+  <line x1="112" y1="310" x2="538" y2="310" stroke="#e2e8f0" stroke-width="2" stroke-dasharray="5 7"/>
+  <polyline points="120,464 220,464 320,463 420,326 530,307" fill="none" stroke="url(#line1)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <g fill="#ffffff" stroke="#2563eb" stroke-width="5">
+    <circle cx="120" cy="464" r="9"/><circle cx="220" cy="464" r="9"/><circle cx="320" cy="463" r="9"/><circle cx="420" cy="326" r="9"/><circle cx="530" cy="307" r="9"/>
+  </g>
+  <text x="120" y="510" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#64748b">base</text>
+  <text x="220" y="510" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#64748b">dedupe</text>
+  <text x="320" y="510" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#64748b">padding</text>
+  <text x="420" y="510" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#64748b">retune</text>
+  <text x="530" y="510" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#64748b">final</text>
+
+  <rect x="620" y="210" width="510" height="350" rx="26" fill="#ffffff" filter="url(#shadow)"/>
+  <text x="658" y="258" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="22" font-weight="680" fill="#0f172a">Recompute W/U</text>
+  <text x="1092" y="258" text-anchor="end" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="28" font-weight="760" fill="#7c3aed">57.77×</text>
+  <line x1="662" y1="470" x2="1088" y2="470" stroke="#e2e8f0" stroke-width="2"/>
+  <line x1="662" y1="390" x2="1088" y2="390" stroke="#e2e8f0" stroke-width="2" stroke-dasharray="5 7"/>
+  <line x1="662" y1="310" x2="1088" y2="310" stroke="#e2e8f0" stroke-width="2" stroke-dasharray="5 7"/>
+  <polyline points="670,464 770,451 870,360 970,303 1080,304" fill="none" stroke="url(#line2)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <g fill="#ffffff" stroke="#8b5cf6" stroke-width="5">
+    <circle cx="670" cy="464" r="9"/><circle cx="770" cy="451" r="9"/><circle cx="870" cy="360" r="9"/><circle cx="970" cy="303" r="9"/><circle cx="1080" cy="304" r="9"/>
+  </g>
+  <text x="670" y="510" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#64748b">base</text>
+  <text x="770" y="510" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#64748b">dedupe</text>
+  <text x="870" y="510" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#64748b">matmul</text>
+  <text x="970" y="510" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#64748b">tiling</text>
+  <text x="1080" y="510" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#64748b">final</text>
+
+  <text x="70" y="604" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="16" fill="#64748b">Five cumulative implementations · full per-shape timings in PRESENTATION_OPTIMIZATION_LADDER.md</text>
+</svg>
