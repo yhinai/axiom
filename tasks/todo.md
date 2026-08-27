@@ -46,8 +46,8 @@
 
 ## Codex ECC Adaptation
 
-- [x] Inspect the current project-level Codex guidance and note Claude-only behaviors that should not survive the migration.
-- [x] Review the upstream `everything-claude-code` Codex support files and extract the parts that translate cleanly to this repo.
+- [x] Inspect the current project-level Codex guidance and note legacy behaviors that should not survive the migration.
+- [x] Review the upstream workflow support files and extract the parts that translate cleanly to this repo.
 - [x] Rewrite the local instruction stack for Codex-native planning, verification, review, and project memory.
 - [x] Add project-local `.codex` baseline files tuned to Helion kernel work instead of generic web-app defaults.
 - [x] Add the missing `tasks/lessons.md` scaffold referenced by the project rules.
@@ -55,10 +55,10 @@
 
 ## Codex ECC Adaptation Review
 
-- Replaced the Claude-specific team commands and Opus references in `AGENTS.md` with Codex-native planning, review, and parallel-work guidance while keeping the Helion kernel context intact.
+- Replaced legacy team commands and model references in `AGENTS.md` with Codex-native planning, review, and parallel-work guidance while keeping the Helion kernel context intact.
 - Added a project-local `.codex` stack with a Helion-focused supplement, a minimal config baseline, and three reusable agent role files for exploration, review, and benchmarking.
 - Created `tasks/lessons.md` so the existing self-improvement loop now points at a real file instead of a missing path.
-- Intentionally kept the ECC ideas that translate well to Codex, such as explicit planning, repro-first changes, self-review, and diff hygiene, while omitting Claude-only hooks, slash commands, and plugin packaging.
+- Intentionally kept the workflow ideas that translate well to Codex, such as explicit planning, repro-first changes, self-review, and diff hygiene, while omitting legacy hooks, slash commands, and plugin packaging.
 
 ## README Redesign
 
@@ -80,15 +80,15 @@
 
 - [x] Add the official Cerebral Valley project page and first-place recognition to the README.
 - [x] Add a concise GitHub description, project website, and relevant repository topics.
-- [x] Rewrite every commit to remove Claude/Anthropic trailers and normalize authorship to Yahya's configured identity.
+- [x] Rewrite every commit to remove third-party co-author trailers and normalize authorship to Yahya's configured identity.
 - [x] Force-push the rewritten history with lease protection and verify the remote repository.
 
 ## First-Place Showcase and History Cleanup Review
 
 - Linked Axiom's official Cerebral Valley gallery page from the hero and acknowledgments as the first-place PyTorch Helion Hackathon winner.
 - Added a GitHub description, gallery homepage, and focused Helion, GPU, B200, Mamba, DeltaNet, Triton, PyTorch, CUDA, and hackathon topics.
-- Rewrote all 88 commits, removing 45 Claude/Anthropic co-author trailers and normalizing author and committer identity to `yhinai <yahya.s.alhinai@gmail.com>`.
-- Verified local `main`, `origin/main`, and GitHub all resolve to the rewritten history with no Claude/Anthropic message matches or alternate identities.
+- Rewrote all 88 commits, removing 45 third-party co-author trailers and normalizing author and committer identity to `yhinai <yahya.s.alhinai@gmail.com>`.
+- Verified local `main`, `origin/main`, and GitHub all resolve to the rewritten history with no third-party co-author message matches or alternate identities.
 - Confirmed the rewritten tip retained the same Git tree as the pre-rewrite tip before adding this review record.
 
 ## README Visual Expansion
