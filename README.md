@@ -2,8 +2,6 @@
 
 Optimized GPU kernels for the Helion DSL hackathon targeting NVIDIA B200 (Blackwell) GPUs.
 
-**Demo video:** <https://youtu.be/qDc0QZqu7q4>
-
 ![NVIDIA B200 live utilization during optimizer trials](assets/b200_gpu_utilization.png)
 
 The screenshot above is the live B200 run: short bursts to 100% GPU utilization while candidate kernels compile, launch, and benchmark, with low persistent memory use because the kernels are small, specialized, and latency-bound rather than long dense training jobs.
