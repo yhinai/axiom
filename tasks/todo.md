@@ -106,3 +106,20 @@
 - Kept the live B200 utilization capture, bringing the README to four purposeful figures without adding decorative badge clutter.
 - Added seven references covering Helion, Mamba-2, Gated DeltaNet, upstream kernels, benchmark evidence, the optimization ladder, and the winning project entry.
 - Verified all SVG files as valid XML, all local links as present, balanced Markdown fences, clean diffs, synchronized remote history, and Yahya-only authorship.
+
+## SSH Credential Incident
+
+- [x] Confirm the affected current files and historical commits without printing the credential.
+- [x] Replace password-based SSH helpers with key or agent authentication and strict host-key checking.
+- [x] Rewrite and force-push all repository history to remove credential-bearing file versions.
+- [x] Verify the exact exposed value and sensitive credential markers are absent from every reachable commit.
+- [x] Garbage-collect the tainted objects from the local clone.
+- [ ] Rotate or revoke the exposed credential on the affected SSH host.
+- [ ] Ask GitHub Support to purge the two cached dangling commit views, then resolve the GitGuardian incident.
+
+## SSH Credential Incident Review
+
+- Replaced three password-based remote helpers with `BatchMode=yes`, strict host-key checking, and SSH key or agent authentication.
+- Rewrote all 99 commits and force-pushed with lease protection; the current repository tree was preserved.
+- Verified zero reachable commits contain the exact exposed value, password-based SSH markers, or private-key headers.
+- Confirmed the old alert commit objects are purged locally but remain available through GitHub's cached commit views pending Support removal.
