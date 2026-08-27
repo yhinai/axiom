@@ -59,3 +59,11 @@
 - Added a project-local `.codex` stack with a Helion-focused supplement, a minimal config baseline, and three reusable agent role files for exploration, review, and benchmarking.
 - Created `tasks/lessons.md` so the existing self-improvement loop now points at a real file instead of a missing path.
 - Intentionally kept the ECC ideas that translate well to Codex, such as explicit planning, repro-first changes, self-review, and diff hygiene, while omitting Claude-only hooks, slash commands, and plugin packaging.
+
+## README Redesign
+
+- [ ] Audit the README against the repository, reports, scripts, and kernel inventory.
+- [ ] Remove unrelated content and reduce the page to one clear Axiom narrative.
+- [ ] Rebuild the hierarchy with a minimal hero, concise results, quick start, architecture, and links.
+- [ ] Verify every local link, command, and performance claim.
+- [ ] Review the rendered Markdown structure and document the result below.
